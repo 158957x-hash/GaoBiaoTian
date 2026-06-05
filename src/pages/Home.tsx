@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import PermanentFarmland from "@/pages/PermanentFarmland";
+import SupervisionMap from "@/pages/SupervisionMap";
 import {
   BarChart3,
   Building2,
@@ -16,6 +17,8 @@ import {
 
 type PortalProps = {
   onLogout: () => void;
+  onOpenPermanent: () => void;
+  onOpenSupervisionMap: () => void;
 };
 
 const systems = [
@@ -68,7 +71,7 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-function PortalHome({ onLogout, onOpenPermanent }: PortalProps & { onOpenPermanent: () => void }) {
+function PortalHome({ onLogout, onOpenPermanent, onOpenSupervisionMap }: PortalProps) {
   const [toast, setToast] = useState("");
   const dateText = useMemo(() => new Intl.DateTimeFormat("zh-CN", { dateStyle: "full" }).format(new Date()), []);
   const openPlaceholder = (name: string) => { setToast(`${name} 暂未建设二级页面`); window.setTimeout(() => setToast(""), 1800); };
@@ -102,7 +105,7 @@ function PortalHome({ onLogout, onOpenPermanent }: PortalProps & { onOpenPermane
           {systems.map((system) => {
             const Icon = system.icon;
             return (
-              <button key={system.title} onClick={() => { if (system.title === "永久基本农田质量管理") { onOpenPermanent(); return; } openPlaceholder(system.title); }} className={`group relative overflow-hidden rounded-[1.8rem] border border-white/80 bg-white/82 p-5 text-left shadow-[0_18px_60px_rgba(18,61,47,0.08)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_24px_90px_rgba(18,61,47,0.14)] ${system.wide ? "xl:col-span-1" : ""}`}>
+              <button key={system.title} onClick={() => { if (system.title === "永久基本农田质量管理") { onOpenPermanent(); return; } if (system.title === "农田监管一张图") { onOpenSupervisionMap(); return; } openPlaceholder(system.title); }} className={`group relative overflow-hidden rounded-[1.8rem] border border-white/80 bg-white/82 p-5 text-left shadow-[0_18px_60px_rgba(18,61,47,0.08)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_24px_90px_rgba(18,61,47,0.14)] ${system.wide ? "xl:col-span-1" : ""}`}>
                 <div className={`absolute -right-8 -top-10 h-28 w-28 rounded-full bg-gradient-to-br ${system.tone} opacity-20 transition group-hover:scale-125`} />
                 <div className="relative flex items-center justify-between"><div className={`grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br ${system.tone} text-[#123d2f] shadow-md`}><Icon className="h-6 w-6" /></div><span className="rounded-full bg-emerald-900/8 px-3 py-1 text-xs font-bold text-emerald-800">{system.badge}</span></div>
                 <h3 className="relative mt-5 min-h-14 text-xl font-black leading-snug text-[#123d2f]">{system.title}</h3>
@@ -120,9 +123,10 @@ function PortalHome({ onLogout, onOpenPermanent }: PortalProps & { onOpenPermane
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeSystem, setActiveSystem] = useState<"portal" | "permanent">("portal");
+  const [activeSystem, setActiveSystem] = useState<"portal" | "permanent" | "supervisionMap">("portal");
 
   if (!isLoggedIn) return <LoginView onLogin={() => setIsLoggedIn(true)} />;
   if (activeSystem === "permanent") return <PermanentFarmland onBack={() => setActiveSystem("portal")} />;
-  return <PortalHome onLogout={() => setIsLoggedIn(false)} onOpenPermanent={() => setActiveSystem("permanent")} />;
+  if (activeSystem === "supervisionMap") return <SupervisionMap onBack={() => setActiveSystem("portal")} />;
+  return <PortalHome onLogout={() => setIsLoggedIn(false)} onOpenPermanent={() => setActiveSystem("permanent")} onOpenSupervisionMap={() => setActiveSystem("supervisionMap")} />;
 }
