@@ -167,7 +167,7 @@ function getPathCenter(path: LatLngExpression[]) {
   return [total[0] / points.length, total[1] / points.length] as LatLngExpression;
 }
 
-export default function SupervisionGisMap({ projects, regionId, selectedProjectId, layers, onLayersChange, onProjectSelect, onRegionDrill }: SupervisionGisMapProps) {
+export default function SupervisionGisMap({ projects, regionId, selectedProjectId, layers, onLayersChange, onProjectSelect, onRegionDrill, onOpenDeviceDetail }: SupervisionGisMapProps) {
   const [selectedItem, setSelectedItem] = useState<SelectedMapItem | null>(null);
   const projectIds = useMemo(() => projects.map((project) => project.id), [projects]);
   const visibleFacilities = useMemo(() => facilityPoints.filter((item) => projectIds.includes(item.projectId)), [projectIds]);
@@ -243,7 +243,15 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
           </div>
           {selectedItem.type === "project" && <div className="mt-4 text-sm leading-7">项目编号：{selectedItem.item.code}<br />建设面积：{selectedItem.item.area.toLocaleString()} 亩<br />投资金额：{selectedItem.item.investment.toLocaleString()} 万元<br />当前进度：{selectedItem.item.progress}%</div>}
           {selectedItem.type === "facility" && <div className="mt-4 text-sm leading-7">设施类型：{selectedItem.item.type}<br />运行状态：{selectedItem.item.status}<br />工程点位已接入施工监管台账。</div>}
-          {selectedItem.type === "device" && <div className="mt-4 text-sm leading-7">设备类型：{selectedItem.item.type}<br />在线状态：{selectedItem.item.status}<br />实时数据：{selectedItem.item.value}<br />采集时间：{selectedItem.item.time}</div>}
+          {selectedItem.type === "device" && (
+            <div className="mt-4 text-sm leading-7">
+              <div>设备类型：{selectedItem.item.type}</div>
+              <div>在线状态：{selectedItem.item.status}</div>
+              <div>实时数据：{selectedItem.item.value}</div>
+              <div>采集时间：{selectedItem.item.time}</div>
+              <button onClick={() => onOpenDeviceDetail(selectedItem.item)} className="mt-4 flex w-full items-center justify-center rounded-2xl bg-[#123d2f] px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-950/15 hover:bg-[#0f3026]">查看详情</button>
+            </div>
+          )}
         </div>
       )}
     </div>
