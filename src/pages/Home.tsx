@@ -1,6 +1,7 @@
 import { useMemo, useState } from "react";
 import PermanentFarmland from "@/pages/PermanentFarmland";
 import SupervisionMap from "@/pages/SupervisionMap";
+import SupplementaryLand from "@/pages/SupplementaryLand";
 import {
   BarChart3,
   Building2,
@@ -8,7 +9,6 @@ import {
   DatabaseZap,
   Layers3,
   LockKeyhole,
-  MapPinned,
   Settings2,
   ShieldCheck,
   Sprout,
@@ -19,14 +19,14 @@ type PortalProps = {
   onLogout: () => void;
   onOpenPermanent: () => void;
   onOpenSupervisionMap: () => void;
+  onOpenSupplementaryLand: () => void;
 };
 
 const systems = [
   { title: "高标准农田建设监管系统", desc: "建设进度、项目验收、资金监管、工程质量闭环调度", icon: Building2, tone: "from-emerald-500 to-lime-400", badge: "建设监管", count: "438", unit: "项目" },
-  { title: "补充耕地验收管理系统", desc: "指标核验、外业举证、资料归档、验收结论统一管理", icon: Sprout, tone: "from-amber-400 to-orange-300", badge: "验收管理", count: "12.8", unit: "万亩" },
+  { title: "补充耕地验收管理系统", desc: "指标核验、外业举证、质量等级数据库与验收结论统一管理", icon: Sprout, tone: "from-amber-400 to-orange-300", badge: "验收管理", count: "12.8", unit: "万亩" },
   { title: "永久基本农田质量管理", desc: "质量等级评价、地块档案、一张图展示和高标田关联", icon: ShieldCheck, tone: "from-teal-400 to-cyan-300", badge: "质量保护", count: "36,218", unit: "图斑" },
   { title: "系统管理", desc: "组织机构、角色权限、平台参数、运行日志与安全审计", icon: Settings2, tone: "from-slate-300 to-emerald-200", badge: "平台配置", count: "128", unit: "用户" },
-  { title: "农田监管一张图", desc: "汇聚耕地资源、项目建设、质量评价、预警监测空间图层", icon: MapPinned, tone: "from-sky-400 to-emerald-300", badge: "空间总览", count: "32", unit: "图层", wide: true },
 ];
 
 const metrics = [
@@ -71,7 +71,7 @@ function LoginView({ onLogin }: { onLogin: () => void }) {
   );
 }
 
-function PortalHome({ onLogout, onOpenPermanent, onOpenSupervisionMap }: PortalProps) {
+function PortalHome({ onLogout, onOpenPermanent, onOpenSupervisionMap, onOpenSupplementaryLand }: PortalProps) {
   const [toast, setToast] = useState("");
   const dateText = useMemo(() => new Intl.DateTimeFormat("zh-CN", { dateStyle: "full" }).format(new Date()), []);
   const openPlaceholder = (name: string) => { setToast(`${name} 暂未建设二级页面`); window.setTimeout(() => setToast(""), 1800); };
@@ -105,7 +105,7 @@ function PortalHome({ onLogout, onOpenPermanent, onOpenSupervisionMap }: PortalP
           {systems.map((system) => {
             const Icon = system.icon;
             return (
-              <button key={system.title} onClick={() => { if (system.title === "永久基本农田质量管理") { onOpenPermanent(); return; } if (system.title === "农田监管一张图") { onOpenSupervisionMap(); return; } openPlaceholder(system.title); }} className={`group relative overflow-hidden rounded-[1.8rem] border border-white/80 bg-white/82 p-5 text-left shadow-[0_18px_60px_rgba(18,61,47,0.08)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_24px_90px_rgba(18,61,47,0.14)] ${system.wide ? "xl:col-span-1" : ""}`}>
+              <button key={system.title} onClick={() => { if (system.title === "高标准农田建设监管系统") { onOpenSupervisionMap(); return; } if (system.title === "补充耕地验收管理系统") { onOpenSupplementaryLand(); return; } if (system.title === "永久基本农田质量管理") { onOpenPermanent(); return; } openPlaceholder(system.title); }} className="group relative overflow-hidden rounded-[1.8rem] border border-white/80 bg-white/82 p-5 text-left shadow-[0_18px_60px_rgba(18,61,47,0.08)] backdrop-blur-xl transition hover:-translate-y-1 hover:shadow-[0_24px_90px_rgba(18,61,47,0.14)]">
                 <div className={`absolute -right-8 -top-10 h-28 w-28 rounded-full bg-gradient-to-br ${system.tone} opacity-20 transition group-hover:scale-125`} />
                 <div className="relative flex items-center justify-between"><div className={`grid h-12 w-12 place-items-center rounded-2xl bg-gradient-to-br ${system.tone} text-[#123d2f] shadow-md`}><Icon className="h-6 w-6" /></div><span className="rounded-full bg-emerald-900/8 px-3 py-1 text-xs font-bold text-emerald-800">{system.badge}</span></div>
                 <h3 className="relative mt-5 min-h-14 text-xl font-black leading-snug text-[#123d2f]">{system.title}</h3>
@@ -123,10 +123,11 @@ function PortalHome({ onLogout, onOpenPermanent, onOpenSupervisionMap }: PortalP
 
 export default function Home() {
   const [isLoggedIn, setIsLoggedIn] = useState(false);
-  const [activeSystem, setActiveSystem] = useState<"portal" | "permanent" | "supervisionMap">("portal");
+  const [activeSystem, setActiveSystem] = useState<"portal" | "permanent" | "supervisionMap" | "supplementaryLand">("portal");
 
   if (!isLoggedIn) return <LoginView onLogin={() => setIsLoggedIn(true)} />;
   if (activeSystem === "permanent") return <PermanentFarmland onBack={() => setActiveSystem("portal")} />;
   if (activeSystem === "supervisionMap") return <SupervisionMap onBack={() => setActiveSystem("portal")} />;
-  return <PortalHome onLogout={() => setIsLoggedIn(false)} onOpenPermanent={() => setActiveSystem("permanent")} onOpenSupervisionMap={() => setActiveSystem("supervisionMap")} />;
+  if (activeSystem === "supplementaryLand") return <SupplementaryLand onBack={() => setActiveSystem("portal")} />;
+  return <PortalHome onLogout={() => setIsLoggedIn(false)} onOpenPermanent={() => setActiveSystem("permanent")} onOpenSupervisionMap={() => setActiveSystem("supervisionMap")} onOpenSupplementaryLand={() => setActiveSystem("supplementaryLand")} />;
 }

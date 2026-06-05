@@ -91,7 +91,7 @@ export default function SupervisionMap({ onBack }: SupervisionMapProps) {
         <header className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/80 bg-white/80 px-6 py-5 shadow-[0_18px_70px_rgba(18,61,47,0.08)] backdrop-blur-xl">
           <div className="flex items-center gap-4">
             <button onClick={onBack} className="grid h-12 w-12 place-items-center rounded-2xl bg-[#123d2f] text-white"><ArrowLeft className="h-5 w-5" /></button>
-            <div><p className="text-sm font-black tracking-[0.28em] text-emerald-700">HIGH STANDARD FARMLAND GIS</p><h1 className="mt-1 text-3xl font-black text-[#123d2f]">农田监管一张图 · 高标准农田建设动态监管</h1></div>
+            <div><p className="text-sm font-black tracking-[0.28em] text-emerald-700">HIGH STANDARD FARMLAND GIS</p><h1 className="mt-1 text-3xl font-black text-[#123d2f]">高标准农田建设监管系统 · 一张图</h1></div>
           </div>
           <div className="flex items-center gap-3 rounded-2xl bg-emerald-50 px-4 py-3 text-sm font-bold text-[#123d2f]"><LocateFixed className="h-5 w-5 text-emerald-700" />当前范围：{getSupervisionRegionName(regionId)}</div>
         </header>
