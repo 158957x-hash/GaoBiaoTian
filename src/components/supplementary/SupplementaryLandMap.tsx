@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { CircleMarker, MapContainer, Polygon, Polyline, Popup, Tooltip, useMap } from "react-leaflet";
+import { CircleMarker, MapContainer, Polygon, Polyline, Tooltip, useMap } from "react-leaflet";
 import { type LatLngBoundsExpression, type LatLngExpression } from "leaflet";
 import { FlaskConical, Grid3X3, Layers, MapPinned, RadioTower, Sprout } from "lucide-react";
 import { getSupervisionRegionName } from "@/data/supervisionMap";
@@ -111,31 +111,28 @@ function RecenterMap({ regionId }: { regionId: string }) {
   const map = useMap();
   useEffect(() => {
     const view = regionView[regionId] ?? regionView.anhui;
-    map.flyTo(view.center, view.zoom, { duration: 0.8 });
+    map.setMaxBounds(view.bounds);
+    map.setView(view.center, view.zoom, { animate: true, duration: 0.45 });
   }, [map, regionId]);
   return null;
 }
 
-function ParcelPopup({ parcel, onOpenParcelDetail }: { parcel: SupplementaryParcel; onOpenParcelDetail: (parcel: SupplementaryParcel) => void }) {
-  return (
-    <div className="w-76 text-sm text-slate-700">
-      <p className="text-xs font-black text-lime-700">补充耕地图斑属性</p>
-      <h3 className="mt-1 text-base font-black text-[#123d2f]">{parcel.projectName}</h3>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <div className="rounded-lg bg-lime-50 p-2"><b>地块编号</b><br />{parcel.code}</div>
-        <div className="rounded-lg bg-lime-50 p-2"><b>面积</b><br />{parcel.area.toLocaleString()} 亩</div>
-        <div className="rounded-lg bg-lime-50 p-2"><b>耕地类型</b><br />{parcel.landType}</div>
-        <div className="rounded-lg bg-lime-50 p-2"><b>质量等级</b><br />{parcel.qualityGrade}</div>
-        <div className="rounded-lg bg-lime-50 p-2"><b>评价单元</b><br />{parcel.evaluationUnit}</div>
-        <div className="rounded-lg bg-lime-50 p-2"><b>采样点数量</b><br />{parcel.sampleCount} 个</div>
-      </div>
-      <div className="mt-2 rounded-lg bg-slate-50 p-2 text-xs leading-5">{parcel.city}{parcel.county}{parcel.town}<br />检测结果：{parcel.testResult}<br />鉴定状态：{parcel.status}</div>
-      <button onClick={() => onOpenParcelDetail(parcel)} className="mt-3 w-full rounded-lg bg-[#123d2f] px-3 py-2 text-xs font-black text-white">进入质量档案</button>
-    </div>
-  );
+function FocusSelectedParcel({ parcel }: { parcel?: SupplementaryParcel | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!parcel) return;
+    map.fitBounds(parcel.path as LatLngBoundsExpression, { padding: [44, 44], maxZoom: 14, animate: true, duration: 0.45 });
+  }, [map, parcel]);
+  return null;
 }
 
-export default function SupplementaryLandMap({ parcels, regionId, selectedParcelId, layers, onLayersChange, onParcelSelect, onRegionDrill, onOpenParcelDetail }: SupplementaryLandMapProps) {
+function getPathCenter(path: LatLngExpression[]) {
+  const points = path as Array<[number, number]>;
+  const total = points.reduce((sum, point) => [sum[0] + point[0], sum[1] + point[1]], [0, 0]);
+  return [total[0] / points.length, total[1] / points.length] as LatLngExpression;
+}
+
+export default function SupplementaryLandMap({ parcels, regionId, selectedParcelId, layers, onLayersChange, onParcelSelect, onRegionDrill }: SupplementaryLandMapProps) {
   const [selectedParcel, setSelectedParcel] = useState<SupplementaryParcel | null>(null);
   const mapBounds = regionView[regionId]?.bounds ?? regionView.anhui.bounds;
   const selected = useMemo(() => parcels.find((parcel) => parcel.id === selectedParcelId) ?? null, [parcels, selectedParcelId]);
@@ -145,10 +142,9 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedParcel
       <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#123326]" scrollWheelZoom>
         <OfflineBasemap />
         <RecenterMap regionId={regionId} />
+        <FocusSelectedParcel parcel={selected} />
         {layers.boundary && (boundaryPolygons[regionId] ?? boundaryPolygons.anhui).map((boundary) => (
-          <Polygon key={boundary.id} positions={boundary.path} pathOptions={{ color: "#65a30d", weight: 2, dashArray: "8 6", fillColor: "#84cc16", fillOpacity: 0.08 }} eventHandlers={{ click: () => onRegionDrill(boundary.id) }}>
-            <Tooltip permanent direction="center" className="!rounded-full !border-0 !bg-lime-900/85 !px-3 !py-1 !font-black !text-white">{boundary.name}</Tooltip>
-          </Polygon>
+          <Polygon key={boundary.id} positions={boundary.path} pathOptions={{ color: "#65a30d", weight: 2, dashArray: "8 6", fillColor: "#84cc16", fillOpacity: 0.08 }} eventHandlers={{ click: () => onRegionDrill(boundary.id) }} />
         ))}
         {parcels.map((parcel) => {
           const isSelected = parcel.id === selectedParcelId;
@@ -156,23 +152,25 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedParcel
           return (
             <Fragment key={parcel.id}>
               {layers.parcels && (
-                <Polygon positions={parcel.path} pathOptions={{ color: isSelected ? "#facc15" : "#f8fafc", weight: isSelected ? 3 : 1.4, fillColor, fillOpacity: isSelected ? 0.52 : 0.32 }} eventHandlers={{ click: () => { onParcelSelect(parcel); setSelectedParcel(parcel); } }}>
+                <Polygon bubblingMouseEvents={false} positions={parcel.path} pathOptions={{ color: isSelected ? "#facc15" : "#f8fafc", weight: isSelected ? 3 : 1.4, fillColor, fillOpacity: isSelected ? 0.52 : 0.32 }} eventHandlers={{ click: () => { onParcelSelect(parcel); setSelectedParcel(parcel); } }}>
                   <Tooltip permanent direction="center" className="!rounded-full !border-0 !bg-emerald-950/85 !px-2 !py-1 !text-xs !font-black !text-white">{parcel.county}</Tooltip>
-                  <Popup><ParcelPopup parcel={parcel} onOpenParcelDetail={onOpenParcelDetail} /></Popup>
                 </Polygon>
               )}
               {layers.units && parcel.unitPaths.map((unitPath, index) => (
-                <Polygon key={`${parcel.id}-unit-${index}`} positions={unitPath} pathOptions={{ color: "#fef3c7", weight: 1, fillColor: "#fef9c3", fillOpacity: 0.13, dashArray: "4 4" }} eventHandlers={{ click: () => { onParcelSelect(parcel); setSelectedParcel(parcel); } }} />
+                <Polygon key={`${parcel.id}-unit-${index}`} bubblingMouseEvents={false} positions={unitPath} pathOptions={{ color: "#fef3c7", weight: 1, fillColor: "#fef9c3", fillOpacity: 0.13, dashArray: "4 4" }} eventHandlers={{ click: () => { onParcelSelect(parcel); setSelectedParcel(parcel); } }} />
               ))}
               {layers.samples && parcel.samplePoints.map((point, index) => (
-                <CircleMarker key={`${parcel.id}-sample-${index}`} center={point} radius={5} pathOptions={{ color: "#fff7ed", fillColor: "#0f766e", fillOpacity: 0.95, weight: 2 }} eventHandlers={{ click: () => { onParcelSelect(parcel); setSelectedParcel(parcel); } }}>
-                  <Popup><div className="text-sm"><b>采样点 {index + 1}</b><br />关联地块：{parcel.code}<br />检测结果：{parcel.testResult}</div></Popup>
-                </CircleMarker>
+                <CircleMarker key={`${parcel.id}-sample-${index}`} bubblingMouseEvents={false} center={point} radius={5} pathOptions={{ color: "#fff7ed", fillColor: "#0f766e", fillOpacity: 0.95, weight: 2 }} eventHandlers={{ click: () => { onParcelSelect(parcel); setSelectedParcel(parcel); } }} />
               ))}
             </Fragment>
           );
         })}
         {selected && <CircleMarker center={selected.latLng} radius={18} pathOptions={{ color: "#facc15", fillColor: "#fef08a", fillOpacity: 0.28, weight: 3 }} />}
+        {layers.boundary && (boundaryPolygons[regionId] ?? []).map((boundary) => (
+          <CircleMarker key={`boundary-label-${boundary.id}`} center={getPathCenter(boundary.path)} radius={18} pathOptions={{ color: "transparent", fillColor: "transparent", fillOpacity: 0, weight: 0 }} eventHandlers={{ click: () => onRegionDrill(boundary.id) }}>
+            <Tooltip permanent direction="center" className="!rounded-full !border-0 !bg-lime-950/85 !px-3 !py-1 !text-xs !font-black !text-white">{boundary.name}</Tooltip>
+          </CircleMarker>
+        ))}
       </MapContainer>
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[400] h-24 bg-gradient-to-b from-slate-950/32 to-transparent" />
       <div className="absolute left-4 top-4 z-[500] rounded-2xl border border-white/18 bg-slate-950/62 px-4 py-3 text-white shadow-2xl backdrop-blur-xl">

@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, Tooltip, useMap } from "react-leaflet";
+import { CircleMarker, MapContainer, Marker, Polygon, Polyline, Tooltip, useMap } from "react-leaflet";
 import L, { type LatLngBoundsExpression, type LatLngExpression } from "leaflet";
 import { Camera, Droplets, Layers, RadioTower, Route, Sprout } from "lucide-react";
 import {
@@ -28,6 +28,7 @@ type SupervisionGisMapProps = {
   onProjectSelect: (project: HighStandardProject) => void;
   onRegionDrill: (regionId: string) => void;
   onOpenProjectDetail: (project: HighStandardProject) => void;
+  onOpenDeviceDetail: (device: DevicePoint) => void;
 };
 
 const regionView: Record<string, { center: LatLngExpression; zoom: number; bounds: LatLngBoundsExpression }> = {
@@ -145,29 +146,28 @@ function RecenterMap({ regionId }: { regionId: string }) {
   const map = useMap();
   useEffect(() => {
     const view = regionView[regionId] ?? regionView.anhui;
-    map.flyTo(view.center, view.zoom, { duration: 0.8 });
+    map.setMaxBounds(view.bounds);
+    map.setView(view.center, view.zoom, { animate: true, duration: 0.45 });
   }, [map, regionId]);
   return null;
 }
 
-function ProjectPopup({ project, onOpenProjectDetail }: { project: HighStandardProject; onOpenProjectDetail: (project: HighStandardProject) => void }) {
-  return (
-    <div className="w-72 text-sm text-slate-700">
-      <p className="text-xs font-black text-emerald-700">项目区属性卡</p>
-      <h3 className="mt-1 text-base font-black text-[#123d2f]">{project.name}</h3>
-      <div className="mt-3 grid grid-cols-2 gap-2 text-xs">
-        <div className="rounded-lg bg-emerald-50 p-2"><b>建设面积</b><br />{project.area.toLocaleString()} 亩</div>
-        <div className="rounded-lg bg-emerald-50 p-2"><b>投资金额</b><br />{project.investment.toLocaleString()} 万元</div>
-        <div className="rounded-lg bg-emerald-50 p-2"><b>建设状态</b><br />{project.status}</div>
-        <div className="rounded-lg bg-emerald-50 p-2"><b>当前进度</b><br />{project.progress}%</div>
-      </div>
-      <div className="mt-2 rounded-lg bg-slate-50 p-2 text-xs leading-5">{project.city}{project.county}{project.town}<br />施工单位：{project.constructionUnit}<br />监理单位：{project.supervisionUnit}</div>
-      <button onClick={() => onOpenProjectDetail(project)} className="mt-3 w-full rounded-lg bg-[#123d2f] px-3 py-2 text-xs font-black text-white">进入项目详情</button>
-    </div>
-  );
+function FocusSelectedProject({ project }: { project?: HighStandardProject }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!project) return;
+    map.fitBounds(project.path as LatLngBoundsExpression, { padding: [44, 44], maxZoom: 13, animate: true, duration: 0.45 });
+  }, [map, project]);
+  return null;
 }
 
-export default function SupervisionGisMap({ projects, regionId, selectedProjectId, layers, onLayersChange, onProjectSelect, onRegionDrill, onOpenProjectDetail }: SupervisionGisMapProps) {
+function getPathCenter(path: LatLngExpression[]) {
+  const points = path as Array<[number, number]>;
+  const total = points.reduce((sum, point) => [sum[0] + point[0], sum[1] + point[1]], [0, 0]);
+  return [total[0] / points.length, total[1] / points.length] as LatLngExpression;
+}
+
+export default function SupervisionGisMap({ projects, regionId, selectedProjectId, layers, onLayersChange, onProjectSelect, onRegionDrill }: SupervisionGisMapProps) {
   const [selectedItem, setSelectedItem] = useState<SelectedMapItem | null>(null);
   const projectIds = useMemo(() => projects.map((project) => project.id), [projects]);
   const visibleFacilities = useMemo(() => facilityPoints.filter((item) => projectIds.includes(item.projectId)), [projectIds]);
@@ -180,10 +180,9 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
       <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#123326]" scrollWheelZoom>
         <OfflineBasemap tone="cyan" />
         <RecenterMap regionId={regionId} />
+        <FocusSelectedProject project={selectedProject} />
         {layers.boundary && (boundaryPolygons[regionId] ?? boundaryPolygons.anhui).map((boundary) => (
-          <Polygon key={boundary.id} positions={boundary.path} pathOptions={{ color: "#0284c7", weight: 2, dashArray: "8 6", fillColor: "#38bdf8", fillOpacity: 0.08 }} eventHandlers={{ click: () => onRegionDrill(boundary.id) }}>
-            <Tooltip permanent direction="center" className="!rounded-full !border-0 !bg-sky-900/85 !px-3 !py-1 !font-black !text-white">{boundary.name}</Tooltip>
-          </Polygon>
+          <Polygon key={boundary.id} positions={boundary.path} pathOptions={{ color: "#0284c7", weight: 2, dashArray: "8 6", fillColor: "#38bdf8", fillOpacity: 0.08 }} eventHandlers={{ click: () => onRegionDrill(boundary.id) }} />
         ))}
         {layers.projects && projects.map((project) => {
           const selected = project.id === selectedProjectId;
@@ -191,27 +190,27 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
           return (
             <Fragment key={project.id}>
               {project.parcelPaths.map((parcelPath, parcelIndex) => (
-                <Polygon key={`${project.id}-${parcelIndex}`} positions={parcelPath} pathOptions={{ color: selected ? "#facc15" : "#f8fafc", weight: selected ? 3 : 1.4, fillColor: color, fillOpacity: selected ? 0.46 : 0.28 }} eventHandlers={{ click: () => { onProjectSelect(project); setSelectedItem({ type: "project", item: project }); } }}>
+                <Polygon key={`${project.id}-${parcelIndex}`} bubblingMouseEvents={false} positions={parcelPath} pathOptions={{ color: selected ? "#facc15" : "#f8fafc", weight: selected ? 3 : 1.4, fillColor: color, fillOpacity: selected ? 0.46 : 0.28 }} eventHandlers={{ click: () => { onProjectSelect(project); setSelectedItem({ type: "project", item: project }); } }}>
                   {parcelIndex === 4 && <Tooltip permanent direction="center" className="!rounded-full !border-0 !bg-emerald-950/85 !px-2 !py-1 !text-xs !font-black !text-white">{project.county}</Tooltip>}
-                  <Popup><ProjectPopup project={project} onOpenProjectDetail={onOpenProjectDetail} /></Popup>
                 </Polygon>
               ))}
-              <Polygon positions={project.path} pathOptions={{ color: selected ? "#facc15" : color, weight: selected ? 4 : 2, fillOpacity: 0, dashArray: selected ? undefined : "8 6" }} eventHandlers={{ click: () => { onProjectSelect(project); setSelectedItem({ type: "project", item: project }); } }} />
+              <Polygon bubblingMouseEvents={false} positions={project.path} pathOptions={{ color: selected ? "#facc15" : color, weight: selected ? 4 : 2, fillOpacity: 0, dashArray: selected ? undefined : "8 6" }} eventHandlers={{ click: () => { onProjectSelect(project); setSelectedItem({ type: "project", item: project }); } }} />
             </Fragment>
           );
         })}
+        {layers.boundary && (boundaryPolygons[regionId] ?? []).map((boundary) => (
+          <CircleMarker key={`boundary-${boundary.id}`} center={getPathCenter(boundary.path)} radius={18} pathOptions={{ color: "transparent", fillColor: "transparent", fillOpacity: 0, weight: 0 }} eventHandlers={{ click: () => onRegionDrill(boundary.id) }}>
+            <Tooltip permanent direction="center" className="!rounded-full !border-0 !bg-cyan-950/85 !px-3 !py-1 !text-xs !font-black !text-white">{boundary.name}</Tooltip>
+          </CircleMarker>
+        ))}
         {layers.facilities && visibleFacilities.map((point) => (
-          <Marker key={point.id} position={point.latLng} icon={createDivIcon(facilityColor(point.type), point.type, "facility")} eventHandlers={{ click: () => setSelectedItem({ type: "facility", item: point }) }}>
-            <Popup><div className="text-sm"><b>{point.name}</b><br />设施类型：{point.type}<br />运行状态：{point.status}</div></Popup>
-          </Marker>
+          <Marker key={point.id} position={point.latLng} icon={createDivIcon(facilityColor(point.type), point.type, "facility")} eventHandlers={{ click: () => setSelectedItem({ type: "facility", item: point }) }} />
         ))}
         {visibleDevices.filter((item) => (item.type === "摄像头" && layers.cameras) || (item.type === "墒情设备" && layers.moisture) || (item.type === "虫情设备" && layers.insects)).map((point) => {
           const color = point.status === "预警" ? "#f97316" : point.status === "离线" ? "#64748b" : "#06b6d4";
           const iconShape = point.type === "摄像头" ? "camera" : point.type === "墒情设备" ? "moisture" : "insect";
           return (
-            <Marker key={point.id} position={point.latLng} icon={createDivIcon(color, point.type, iconShape)} eventHandlers={{ click: () => setSelectedItem({ type: "device", item: point }) }}>
-              <Popup><div className="w-56 text-sm"><b>{point.name}</b><br />设备类型：{point.type}<br />在线状态：{point.status}<br />实时数据：{point.value}<br />采集时间：{point.time}</div></Popup>
-            </Marker>
+            <Marker key={point.id} position={point.latLng} icon={createDivIcon(color, point.type, iconShape)} eventHandlers={{ click: () => setSelectedItem({ type: "device", item: point }) }} />
           );
         })}
         {selectedProject && <CircleMarker center={selectedProject.latLng} radius={18} pathOptions={{ color: "#facc15", fillColor: "#fef08a", fillOpacity: 0.28, weight: 3 }} />}

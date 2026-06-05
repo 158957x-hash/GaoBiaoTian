@@ -188,7 +188,7 @@ export default function SupplementaryLand({ onBack }: SupplementaryLandProps) {
       </section>
 
       {detailParcel && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/55 p-6 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/55 p-6 backdrop-blur-sm">
           <div className="max-h-[88vh] w-full max-w-4xl overflow-auto rounded-[2rem] bg-white p-7 shadow-2xl">
             <div className="flex items-start justify-between gap-5">
               <div><p className="text-sm font-black text-lime-700">补充耕地质量档案</p><h2 className="mt-2 text-2xl font-black text-[#123d2f]">{detailParcel.projectName}</h2></div>

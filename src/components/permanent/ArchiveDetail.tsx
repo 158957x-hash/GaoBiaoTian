@@ -72,7 +72,7 @@ export default function ArchiveDetail({ plot, onClose }: ArchiveDetailProps) {
   ];
 
   return (
-    <div className="fixed inset-0 z-50 bg-slate-950/40 backdrop-blur-sm">
+    <div className="fixed inset-0 z-[9999] bg-slate-950/40 backdrop-blur-sm">
       <aside className="absolute right-0 top-0 flex h-full w-full max-w-4xl flex-col bg-[#f7fbf1] shadow-2xl shadow-slate-950/30">
         <header className="border-b border-emerald-900/10 bg-white/80 p-5 backdrop-blur">
           <div className="flex items-start justify-between gap-4">
