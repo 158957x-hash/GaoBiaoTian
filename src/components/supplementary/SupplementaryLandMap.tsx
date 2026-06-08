@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { CircleMarker, MapContainer, Polygon, Polyline, Tooltip, useMap } from "react-leaflet";
 import { type LatLngBoundsExpression, type LatLngExpression } from "leaflet";
 import { FlaskConical, Grid3X3, Layers, MapPinned, RadioTower, Sprout } from "lucide-react";
+import { TiandituBasemap } from "@/components/maps/TiandituBasemap";
+import { hasTiandituTk } from "@/components/maps/tiandituConfig";
 import { getSupervisionRegionName } from "@/data/supervisionMap";
 import { supplementaryGradeColor, type SupplementaryLayers, type SupplementaryParcel } from "@/data/supplementaryLand";
 
@@ -140,7 +142,7 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedParcel
   return (
     <div className="relative h-[720px] overflow-hidden rounded-[2.2rem] border border-lime-200/20 bg-[#13281b] shadow-[0_28px_90px_rgba(6,31,25,0.24)]">
       <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#123326]" scrollWheelZoom>
-        <OfflineBasemap />
+        <TiandituBasemap fallback={<OfflineBasemap />} />
         <RecenterMap regionId={regionId} />
         <FocusSelectedParcel parcel={selected} />
         {layers.boundary && (boundaryPolygons[regionId] ?? boundaryPolygons.anhui).map((boundary) => (
@@ -187,7 +189,7 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedParcel
         ))}
       </div>
       <div className="absolute bottom-5 right-5 z-[500] rounded-2xl border border-white/18 bg-slate-950/62 px-4 py-3 text-xs text-lime-50 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-4"><span>离线仿真底图</span><span>质量等级专题</span><span>验收管理图层</span></div>
+        <div className="flex items-center gap-4"><span>{hasTiandituTk() ? "天地图矢量底图" : "离线仿真底图"}</span><span>质量等级专题</span><span>验收管理图层</span></div>
       </div>
       {selectedParcel && (
         <div className="absolute right-5 top-20 z-[500] w-[350px] rounded-3xl border border-white/80 bg-white p-5 text-slate-800 shadow-2xl shadow-emerald-950/25">

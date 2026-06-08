@@ -1,3 +1,5 @@
+import { TiandituBasemap } from "@/components/maps/TiandituBasemap";
+import { hasTiandituTk } from "@/components/maps/tiandituConfig";
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { CircleMarker, MapContainer, Marker, Polygon, Polyline, Tooltip, useMap } from "react-leaflet";
 import L, { type LatLngBoundsExpression, type LatLngExpression } from "leaflet";
@@ -178,7 +180,7 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
   return (
     <div className="relative h-[720px] overflow-hidden rounded-[2.2rem] border border-cyan-200/20 bg-[#10251f] shadow-[0_28px_90px_rgba(6,31,25,0.24)]">
       <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#123326]" scrollWheelZoom>
-        <OfflineBasemap tone="cyan" />
+        <TiandituBasemap fallback={<OfflineBasemap tone="cyan" />} />
         <RecenterMap regionId={regionId} />
         <FocusSelectedProject project={selectedProject} />
         {layers.boundary && (boundaryPolygons[regionId] ?? boundaryPolygons.anhui).map((boundary) => (
@@ -230,7 +232,7 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
         ))}
       </div>
       <div className="absolute bottom-5 right-5 z-[500] rounded-2xl border border-white/18 bg-slate-950/62 px-4 py-3 text-xs text-cyan-50 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-4"><span>离线仿真底图</span><span>政务 GIS 风格</span><span>安徽区域</span></div>
+        <div className="flex items-center gap-4"><span>{hasTiandituTk() ? "天地图矢量底图" : "离线仿真底图"}</span><span>政务 GIS 风格</span><span>安徽区域</span></div>
       </div>
       {selectedItem && (
         <div className="absolute right-5 top-20 z-[500] w-[340px] rounded-3xl border border-white/80 bg-white p-5 text-slate-800 shadow-2xl shadow-emerald-950/25">

@@ -2,6 +2,8 @@ import { Fragment, useEffect, useMemo, useState } from "react";
 import { CircleMarker, MapContainer, Marker, Polygon, Polyline, Popup, Tooltip, useMap } from "react-leaflet";
 import L, { type LatLngBoundsExpression, type LatLngExpression } from "leaflet";
 import { Layers, LocateFixed } from "lucide-react";
+import { TiandituBasemap } from "@/components/maps/TiandituBasemap";
+import { hasTiandituTk } from "@/components/maps/tiandituConfig";
 import { getRegionName, qualityColor, type Plot } from "@/data/permanentFarmland";
 
 type LayerState = {
@@ -151,7 +153,7 @@ export default function FarmlandMap({ plots, regionId, selectedPlotId, layers, o
   return (
     <div className="relative h-[640px] overflow-hidden rounded-[2rem] border border-emerald-200/60 bg-[#10251f] shadow-[0_22px_70px_rgba(18,61,47,0.16)]">
       <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#123326]" scrollWheelZoom>
-        <OfflineBasemap />
+        <TiandituBasemap fallback={<OfflineBasemap />} />
         <RecenterMap regionId={regionId} />
         {layers.boundary && visibleBoundaries.map((boundary) => (
           <Polygon key={boundary.id} positions={boundary.path} pathOptions={{ color: "#059669", weight: 2, dashArray: "8 6", fillColor: "#34d399", fillOpacity: 0.08 }} eventHandlers={{ click: () => onRegionDrill(boundary.id) }}>
@@ -186,7 +188,7 @@ export default function FarmlandMap({ plots, regionId, selectedPlotId, layers, o
         <div className="text-xl font-black">{getRegionName(regionId)}</div>
       </div>
       <div className="absolute right-4 top-4 z-[500] rounded-2xl border border-white/18 bg-slate-950/62 px-4 py-3 text-xs text-emerald-50 shadow-2xl backdrop-blur-xl">
-        离线仿真底图 · 政务 GIS 风格
+        {hasTiandituTk() ? "天地图矢量底图" : "离线仿真底图"} · 政务 GIS 风格
       </div>
       <div className="absolute bottom-5 left-5 z-[500] w-56 rounded-3xl border border-white/18 bg-slate-950/68 p-4 text-white shadow-2xl backdrop-blur-xl">
         <div className="mb-3 flex items-center gap-2 text-sm font-black"><Layers className="h-4 w-4 text-emerald-200" />图层控制</div>
