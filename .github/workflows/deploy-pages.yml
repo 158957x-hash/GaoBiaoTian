@@ -34,7 +34,7 @@ jobs:
       - name: Build
         run: npm run build
         env:
-          VITE_TIANDITU_TK: ${{ vars.VITE_TIANDITU_TK }}
+          VITE_TENCENT_MAP_KEY: ${{ vars.VITE_TENCENT_MAP_KEY }}
 
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3

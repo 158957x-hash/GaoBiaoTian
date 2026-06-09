@@ -1,24 +1,59 @@
-import { useMemo, useState } from "react";
-import { ArrowLeft, BarChart3, CheckCircle2, FileSearch, FlaskConical, LocateFixed, Search, Sprout } from "lucide-react";
+import { useEffect, useMemo, useState } from "react";
+import { ArrowLeft, AlertTriangle, BarChart3, CheckCircle2, FileSearch, LocateFixed, PackageCheck, Search, Sprout } from "lucide-react";
 import SupplementaryLandMap from "@/components/supplementary/SupplementaryLandMap";
-import { getSupervisionParentRegion, getSupervisionRegionName } from "@/data/supervisionMap";
+import { getSupervisionRegionName } from "@/data/supervisionMap";
 import {
   buildSupplementaryStats,
   defaultSupplementaryLayers,
   filterSupplementaryParcels,
   supplementaryGradeColor,
-  supplementaryParcels,
-  type QualityGrade,
   type SupplementaryParcel,
+  type SupplementaryStatus,
 } from "@/data/supplementaryLand";
 
 type SupplementaryLandProps = {
   onBack: () => void;
+  initialView?: "map" | "database";
 };
 
+type SupplementaryProjectSummary = {
+  id: string;
+  name: string;
+  parcels: SupplementaryParcel[];
+};
+
+type SupplementarySelection =
+  | { type: "region" }
+  | { type: "project"; project: SupplementaryProjectSummary }
+  | { type: "parcel"; parcel: SupplementaryParcel };
+
 const gradeOptions = ["全部", "优等", "良等", "中等", "一般"];
-const statusOptions = ["全部", "待鉴定", "县级初验", "市级复核", "省级备案", "整改中", "已通过"];
-const regionOptions = ["anhui", "hefei", "suzhou", "fuyang"];
+const statusOptions = [
+  { value: "全部", label: "全部" },
+  { value: "待鉴定", label: "待鉴定" },
+  { value: "县级初验", label: "县级初验" },
+  { value: "市级复核", label: "市级鉴定" },
+  { value: "省级备案", label: "省级抽核" },
+  { value: "整改中", label: "整改中" },
+  { value: "已通过", label: "已通过" },
+];
+const regionOptions = ["anhui", "hefei", "feixi"];
+const acceptanceStatuses: SupplementaryStatus[] = ["待鉴定", "县级初验", "市级复核", "省级备案", "整改中", "已通过"];
+const qualityLevelPalette = ["#0f766e", "#16a34a", "#22c55e", "#65a30d", "#84cc16", "#a3e635", "#facc15", "#f59e0b", "#f97316", "#ef4444"];
+
+function historicalStats(parcels: SupplementaryParcel[]) {
+  const sampleArea = parcels.reduce((sum, parcel) => sum + parcel.area, 0);
+  const sampleProjects = Math.max(projectNameCounts(parcels), 1);
+  const regionFactor = Math.max(parcels.length / 4, 1);
+  const projectCount = Math.round(sampleProjects * 9.6 + regionFactor * 1.8);
+  const parcelCount = Math.round(parcels.length * 18.5 + regionFactor * 12);
+  const supplementaryArea = Number((sampleArea * 42.6 + projectCount * 18.4).toFixed(1));
+  const completedRate = Number(Math.min(96.8, 78.4 + passedCount(parcels) * 1.7 + regionFactor * 0.9).toFixed(1));
+  const storageArea = Number((supplementaryArea * (0.72 + completedRate / 520)).toFixed(1));
+  const qualityRate = Number(Math.min(98.6, 82.3 + parcels.filter((parcel) => ["优等", "良等"].includes(parcel.qualityGrade)).length * 0.8 + regionFactor * 0.45).toFixed(1));
+  const rectificationCount = Math.max(3, Math.round(parcelCount * (0.038 + (100 - qualityRate) / 1800)));
+  return { projectCount, parcelCount, supplementaryArea, completedRate, storageArea, qualityRate, rectificationCount };
+}
 
 function StatCard({ label, value, unit, icon: Icon }: { label: string; value: string | number; unit: string; icon: typeof BarChart3 }) {
   return (
@@ -32,65 +67,209 @@ function StatCard({ label, value, unit, icon: Icon }: { label: string; value: st
   );
 }
 
-function ParcelPanel({ parcel, onOpenDetail }: { parcel: SupplementaryParcel | null; onOpenDetail: (parcel: SupplementaryParcel) => void }) {
-  if (!parcel) {
-    return (
-      <div className="rounded-[2rem] border border-white/80 bg-white/82 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
-        <p className="text-sm font-black text-lime-700">图斑属性</p>
-        <h3 className="mt-2 text-2xl font-black text-[#123d2f]">请选择补充耕地图斑</h3>
-        <p className="mt-4 text-sm leading-7 text-slate-500">点击中间 GIS 地图中的地块，可查看项目名称、地块编号、面积、耕地类型、评价单元、采样点数量、检测结果和质量等级。</p>
-      </div>
-    );
-  }
+function parcelQualityLevel(parcel: SupplementaryParcel) {
+  const number = Number(parcel.code.slice(-2));
+  return ((Number.isFinite(number) ? number : 1) % 10) + 1;
+}
 
+function projectNameCounts(parcels: SupplementaryParcel[]) {
+  return new Set(parcels.map((parcel) => parcel.projectName)).size;
+}
+
+function passedCount(parcels: SupplementaryParcel[]) {
+  return parcels.filter((parcel) => parcel.status === "已通过" || parcel.status === "省级备案").length;
+}
+
+function syntheticQualityArea(parcels: SupplementaryParcel[], level: number) {
+  const measured = parcels.filter((parcel) => parcelQualityLevel(parcel) === level).reduce((sum, parcel) => sum + parcel.area, 0);
+  if (measured > 0) return measured;
+  const baseArea = parcels.reduce((sum, parcel) => sum + parcel.area, 0) / Math.max(parcels.length, 1);
+  const regionFactor = parcels.length ? ((parcels.length * 17 + level * 11) % 13) / 100 : 0;
+  const levelFactor = 0.34 + (11 - level) * 0.045 + regionFactor;
+  return Number((baseArea * levelFactor).toFixed(1));
+}
+
+function statusLabel(status: SupplementaryStatus | "全部") {
+  if (status === "市级复核") return "市级鉴定";
+  if (status === "省级备案") return "省级抽核";
+  return status;
+}
+
+function statusTone(status: SupplementaryStatus) {
+  if (status === "已通过" || status === "省级备案") return "bg-emerald-500";
+  if (status === "整改中") return "bg-orange-400";
+  if (status === "市级复核" || status === "县级初验") return "bg-sky-500";
+  return "bg-slate-400";
+}
+
+function AcceptanceProgressPanel({ parcels }: { parcels: SupplementaryParcel[] }) {
+  const total = Math.max(parcels.length, 1);
   return (
-    <div className="rounded-[2rem] border border-white/80 bg-white/88 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
-      <div className="flex items-start justify-between gap-4">
+    <div className="rounded-[2rem] border border-white/80 bg-white/84 p-5 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
+      <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-black text-lime-700">图斑属性</p>
-          <h3 className="mt-2 text-xl font-black leading-snug text-[#123d2f]">{parcel.projectName}</h3>
+          <p className="text-sm font-black text-lime-700">地区验收进度</p>
+          <h3 className="mt-1 text-xl font-black text-[#123d2f]">流程状态分布</h3>
         </div>
-        <span className="shrink-0 rounded-full px-3 py-1 text-xs font-black text-white" style={{ backgroundColor: supplementaryGradeColor(parcel.qualityGrade) }}>{parcel.qualityGrade}</span>
+        <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-black text-lime-700">{parcels.length} 块</span>
       </div>
-      <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
-        <div className="rounded-2xl bg-lime-50 p-4"><b>地块编号</b><br />{parcel.code}</div>
-        <div className="rounded-2xl bg-lime-50 p-4"><b>地块面积</b><br />{parcel.area.toLocaleString()} 亩</div>
-        <div className="rounded-2xl bg-lime-50 p-4"><b>耕地类型</b><br />{parcel.landType}</div>
-        <div className="rounded-2xl bg-lime-50 p-4"><b>鉴定状态</b><br />{parcel.status}</div>
+      <div className="mt-5 space-y-3">
+        {acceptanceStatuses.map((status) => {
+          const count = parcels.filter((parcel) => parcel.status === status).length;
+          const percent = (count / total) * 100;
+          return (
+            <div key={status}>
+              <div className="mb-1 flex justify-between text-xs font-black text-slate-500"><span>{statusLabel(status)}</span><span>{count} 块 · {percent.toFixed(0)}%</span></div>
+              <div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${statusTone(status)}`} style={{ width: `${percent}%` }} /></div>
+            </div>
+          );
+        })}
       </div>
-      <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-sm leading-7 text-slate-600">
-        所属区域：{parcel.city}{parcel.county}{parcel.town}<br />评价单元：{parcel.evaluationUnit}<br />采样点数量：{parcel.sampleCount} 个<br />检测结果：{parcel.testResult}
-      </div>
-      <button onClick={() => onOpenDetail(parcel)} className="mt-5 w-full rounded-2xl bg-[#123d2f] px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-950/15">查看质量档案</button>
     </div>
   );
 }
 
-export default function SupplementaryLand({ onBack }: SupplementaryLandProps) {
-  const [view, setView] = useState<"map" | "database">("map");
+function ConformityPie({ parcels }: { parcels: SupplementaryParcel[] }) {
+  const passed = passedCount(parcels);
+  const total = Math.max(parcels.length, 1);
+  const percent = (passed / total) * 100;
+  return (
+    <div className="flex items-center justify-center py-4">
+      <div className="grid h-32 w-32 place-items-center rounded-full" style={{ background: `conic-gradient(#16a34a 0 ${percent}%, #f97316 ${percent}% 100%)` }}>
+        <div className="grid h-20 w-20 place-items-center rounded-full bg-white text-center text-xs font-black text-[#123d2f]">通过<br />{percent.toFixed(0)}%</div>
+      </div>
+    </div>
+  );
+}
+
+function QualityLevelBars({ parcels }: { parcels: SupplementaryParcel[] }) {
+  const levels = Array.from({ length: 10 }, (_, index) => index + 1);
+  const areaRows = levels.map((level) => ({ level, area: syntheticQualityArea(parcels, level) }));
+  const maxArea = Math.max(...areaRows.map((row) => row.area), 1);
+  return (
+    <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 pb-4 pt-5">
+      <div className="flex h-44 items-end gap-2">
+        {areaRows.map(({ level, area }) => {
+          const height = Math.max((area / maxArea) * 156, 16);
+          return (
+            <div key={level} className="flex h-full flex-1 flex-col justify-end gap-2">
+              <div className="mx-auto w-full rounded-t-lg shadow-sm" style={{ height: `${height}px`, backgroundColor: qualityLevelPalette[level - 1] }} />
+              <span className="text-center text-[10px] font-black text-slate-500">{level}等</span>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function RegionStatsPanel({ regionName, parcels }: { regionName: string; parcels: SupplementaryParcel[] }) {
+  const stats = buildSupplementaryStats(parcels);
+  return (
+    <div className="rounded-[2rem] border border-white/80 bg-white/88 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
+      <h3 className="text-2xl font-black text-[#123d2f]">区域验收统计</h3>
+      <div className="mt-5 space-y-3 text-lg leading-8 text-slate-700">
+        <p>行政区划：{regionName}</p>
+        <p>补充耕地面积：{stats.area.toLocaleString()}亩</p>
+        <p>图斑数量：{stats.count}</p>
+        <p>项目数量：{projectNameCounts(parcels)}</p>
+      </div>
+      <h4 className="mt-8 text-lg font-black text-slate-800">农业符合性评价通过情况</h4>
+      <ConformityPie parcels={parcels} />
+      <h4 className="mt-6 text-lg font-black text-slate-800">耕地质量等级分布</h4>
+      <QualityLevelBars parcels={parcels} />
+    </div>
+  );
+}
+
+function ProjectStatsPanel({ project }: { project: SupplementaryProjectSummary }) {
+  const stats = buildSupplementaryStats(project.parcels);
+  const first = project.parcels[0];
+  return (
+    <div className="rounded-[2rem] border border-white/80 bg-white/88 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <h3 className="text-2xl font-black text-[#123d2f]">项目验收统计</h3>
+          <div className="mt-5 space-y-3 text-lg leading-8 text-slate-700">
+            <p>项目名称：{project.name}</p>
+            <p>行政区划：{first ? `${first.city}${first.county}` : "--"}</p>
+            <p>补充耕地面积：{stats.area.toLocaleString()}亩</p>
+            <p>图斑数量：{stats.count}</p>
+          </div>
+        </div>
+        <button className="shrink-0 rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white">查看鉴定意见报告</button>
+      </div>
+      <h4 className="mt-8 text-lg font-black text-slate-800">农业符合性评价通过情况</h4>
+      <ConformityPie parcels={project.parcels} />
+      <h4 className="mt-6 text-lg font-black text-slate-800">耕地质量等级分布</h4>
+      <QualityLevelBars parcels={project.parcels} />
+    </div>
+  );
+}
+
+function ParcelStatsPanel({ parcel, onOpenDetail }: { parcel: SupplementaryParcel; onOpenDetail: (parcel: SupplementaryParcel) => void }) {
+  return (
+    <div className="rounded-[2rem] border border-white/80 bg-white/88 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
+      <h3 className="text-2xl font-black text-[#123d2f]">地块验收统计</h3>
+      <div className="mt-5 space-y-3 text-lg leading-8 text-slate-700">
+        <p>地块编号：{parcel.code}</p>
+        <p>所属行政区划：{parcel.city}{parcel.county}</p>
+        <p>面积：{parcel.area.toLocaleString()}亩</p>
+        <p>所属项目：{parcel.projectName}</p>
+      </div>
+      <div className="mt-6 space-y-5 text-lg font-black text-slate-800">
+        <div className="flex justify-between"><span>鉴定阶段：{parcel.status === "待鉴定" ? "县级初鉴" : parcel.status}</span><button onClick={() => onOpenDetail(parcel)} className="text-base text-sky-500">查看地块详情&gt;&gt;</button></div>
+        <p>鉴定状态：{parcel.status}</p>
+        <div className="flex justify-between"><span>农业符合性评价：{parcel.status === "整改中" ? "待整改" : "达标"}</span><button className="text-base text-sky-500">展开详情&gt;&gt;</button></div>
+        <div className="rounded-xl border border-slate-300 p-6 text-center text-base font-medium text-slate-600">展示所有农业符合性评价的指标项及参数</div>
+        <div className="flex justify-between"><span>耕地质量等级评价：{parcelQualityLevel(parcel)}.{parcel.sampleCount}</span><button className="text-base text-sky-500">展开详情&gt;&gt;</button></div>
+        <div className="rounded-xl border border-slate-300 p-6 text-center text-base font-medium text-slate-600">展示所有耕地质量等级评价的指标项及参数</div>
+      </div>
+    </div>
+  );
+}
+
+function DynamicStatsPanel({ selection, regionName, parcels, onOpenDetail }: { selection: SupplementarySelection; regionName: string; parcels: SupplementaryParcel[]; onOpenDetail: (parcel: SupplementaryParcel) => void }) {
+  if (selection.type === "project") return <ProjectStatsPanel project={selection.project} />;
+  if (selection.type === "parcel") return <ParcelStatsPanel parcel={selection.parcel} onOpenDetail={onOpenDetail} />;
+  return <RegionStatsPanel regionName={regionName} parcels={parcels} />;
+}
+
+export default function SupplementaryLand({ onBack, initialView = "map" }: SupplementaryLandProps) {
+  const [view, setView] = useState<"map" | "database">(initialView);
   const [regionId, setRegionId] = useState("anhui");
   const [keyword, setKeyword] = useState("");
   const [searchText, setSearchText] = useState("");
   const [grade, setGrade] = useState("全部");
   const [status, setStatus] = useState("全部");
-  const [selectedParcel, setSelectedParcel] = useState<SupplementaryParcel | null>(supplementaryParcels[0]);
+  const [selectedParcel, setSelectedParcel] = useState<SupplementaryParcel | null>(null);
+  const [selection, setSelection] = useState<SupplementarySelection>({ type: "region" });
   const [detailParcel, setDetailParcel] = useState<SupplementaryParcel | null>(null);
   const [layers, setLayers] = useState(defaultSupplementaryLayers);
   const parcels = useMemo(() => filterSupplementaryParcels(regionId, keyword, grade, status), [grade, keyword, regionId, status]);
-  const stats = useMemo(() => buildSupplementaryStats(parcels), [parcels]);
-  const gradeRows = useMemo(() => ["优等", "良等", "中等", "一般"].map((item) => ({ grade: item as QualityGrade, count: parcels.filter((parcel) => parcel.qualityGrade === item).length })), [parcels]);
+  const stats = useMemo(() => historicalStats(parcels), [parcels]);
+
+  useEffect(() => {
+    setSelectedParcel(null);
+    setSelection({ type: "region" });
+  }, [regionId]);
+
+  const selectParcel = (parcel: SupplementaryParcel) => {
+    setSelectedParcel(parcel);
+    setSelection({ type: "parcel", parcel });
+  };
 
   const handleSearch = () => {
     const text = searchText.trim();
     setKeyword(text);
     const matched = filterSupplementaryParcels(regionId, text, grade, status)[0];
-    if (matched) setSelectedParcel(matched);
+    if (matched) selectParcel(matched);
   };
 
   const locateParcel = (parcel: SupplementaryParcel) => {
-    setSelectedParcel(parcel);
-    setRegionId(parcel.regionId);
+    setRegionId("feixi");
     setView("map");
+    window.setTimeout(() => selectParcel(parcel), 0);
   };
 
   return (
@@ -105,12 +284,13 @@ export default function SupplementaryLand({ onBack }: SupplementaryLandProps) {
           <div className="flex items-center gap-3 rounded-2xl bg-lime-50 px-4 py-3 text-sm font-bold text-[#123d2f]"><LocateFixed className="h-5 w-5 text-lime-700" />当前范围：{getSupervisionRegionName(regionId)}</div>
         </header>
 
-        <section className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-5">
-          <StatCard label="补充地块" value={stats.count} unit="块" icon={Sprout} />
-          <StatCard label="补充面积" value={stats.area.toLocaleString()} unit="亩" icon={BarChart3} />
-          <StatCard label="采样点" value={stats.samples} unit="个" icon={FlaskConical} />
-          <StatCard label="备案通过" value={stats.passed} unit="块" icon={CheckCircle2} />
-          <StatCard label="通过率" value={stats.passRate} unit="%" icon={FileSearch} />
+        <section className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+          <StatCard label="项目数 / 地块数" value={`${stats.projectCount} / ${stats.parcelCount}`} unit="个 / 块" icon={Sprout} />
+          <StatCard label="补充耕地面积" value={stats.supplementaryArea.toLocaleString()} unit="亩" icon={BarChart3} />
+          <StatCard label="验收完成率" value={stats.completedRate} unit="%" icon={CheckCircle2} />
+          <StatCard label="合格入库面积" value={stats.storageArea.toLocaleString()} unit="亩" icon={PackageCheck} />
+          <StatCard label="质量达标率" value={stats.qualityRate} unit="%" icon={FileSearch} />
+          <StatCard label="待整改地块" value={stats.rectificationCount} unit="块" icon={AlertTriangle} />
         </section>
 
         <section className="mt-5 flex flex-wrap gap-3 rounded-[2rem] border border-white/80 bg-white/80 p-4 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
@@ -118,12 +298,12 @@ export default function SupplementaryLand({ onBack }: SupplementaryLandProps) {
           <button onClick={() => setView("database")} className={`rounded-2xl px-5 py-3 text-sm font-black ${view === "database" ? "bg-[#123d2f] text-white" : "bg-lime-50 text-[#123d2f]"}`}>质量等级数据库</button>
           <div className="ml-auto flex flex-wrap gap-3">
             <select value={grade} onChange={(event) => setGrade(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{gradeOptions.map((item) => <option key={item}>{item}</option>)}</select>
-            <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{statusOptions.map((item) => <option key={item}>{item}</option>)}</select>
+            <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
           </div>
         </section>
 
         {view === "map" ? (
-          <section className="mt-5 grid gap-5 xl:grid-cols-[280px_minmax(760px,1fr)_380px]">
+          <section className="mt-5 grid gap-5 xl:grid-cols-[280px_minmax(760px,1fr)_420px]">
             <aside className="space-y-5">
               <div className="rounded-[2rem] border border-white/80 bg-white/84 p-5 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
                 <p className="text-sm font-black text-lime-700">GIS 空间查询</p>
@@ -133,36 +313,20 @@ export default function SupplementaryLand({ onBack }: SupplementaryLandProps) {
                 </div>
                 <div className="mt-4 space-y-2">
                   {parcels.slice(0, 5).map((parcel) => (
-                    <button key={parcel.id} onClick={() => setSelectedParcel(parcel)} className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${selectedParcel?.id === parcel.id ? "border-lime-500 bg-lime-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
+                    <button key={parcel.id} onClick={() => selectParcel(parcel)} className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${selectedParcel?.id === parcel.id ? "border-lime-500 bg-lime-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
                       <div className="font-black text-[#123d2f]">{parcel.projectName}</div>
                       <div className="mt-1 text-xs text-slate-500">{parcel.code} · {parcel.qualityGrade}</div>
                     </button>
                   ))}
                 </div>
               </div>
-              <div className="rounded-[2rem] border border-white/80 bg-white/84 p-5 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
-                <div className="flex items-center justify-between"><p className="text-sm font-black text-lime-700">行政区下钻</p>{regionId !== "anhui" && <button onClick={() => setRegionId(getSupervisionParentRegion(regionId))} className="text-xs font-black text-lime-700">返回上级</button>}</div>
-                <div className="mt-4 grid gap-2">
-                  {regionOptions.map((id) => <button key={id} onClick={() => setRegionId(id)} className={`rounded-xl px-4 py-3 text-left text-sm font-bold ${regionId === id ? "bg-[#123d2f] text-white" : "bg-lime-50 text-[#123d2f]"}`}>{getSupervisionRegionName(id)}</button>)}
-                </div>
-              </div>
+              <AcceptanceProgressPanel parcels={parcels} />
             </aside>
 
-            <SupplementaryLandMap parcels={parcels} regionId={regionId} selectedParcelId={selectedParcel?.id} layers={layers} onLayersChange={setLayers} onParcelSelect={setSelectedParcel} onRegionDrill={setRegionId} onOpenParcelDetail={setDetailParcel} />
+            <SupplementaryLandMap parcels={parcels} regionId={regionId} selectedParcelId={selectedParcel?.id} selectedProjectName={selection.type === "project" ? selection.project.id : null} layers={layers} onLayersChange={setLayers} onParcelSelect={selectParcel} onProjectSelect={(project) => { setSelectedParcel(null); setSelection({ type: "project", project }); }} onRegionDrill={setRegionId} onOpenParcelDetail={setDetailParcel} />
 
             <aside className="space-y-5">
-              <ParcelPanel parcel={selectedParcel} onOpenDetail={setDetailParcel} />
-              <div className="rounded-[2rem] border border-white/80 bg-white/84 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
-                <p className="text-sm font-black text-lime-700">质量等级分布</p>
-                <div className="mt-4 space-y-4">
-                  {gradeRows.map((row) => (
-                    <div key={row.grade}>
-                      <div className="mb-2 flex justify-between text-sm font-bold"><span>{row.grade}</span><span>{row.count} 块</span></div>
-                      <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${parcels.length ? (row.count / parcels.length) * 100 : 0}%`, backgroundColor: supplementaryGradeColor(row.grade) }} /></div>
-                    </div>
-                  ))}
-                </div>
-              </div>
+              <DynamicStatsPanel selection={selection} regionName={getSupervisionRegionName(regionId)} parcels={parcels} onOpenDetail={setDetailParcel} />
             </aside>
           </section>
         ) : (
@@ -175,7 +339,7 @@ export default function SupplementaryLand({ onBack }: SupplementaryLandProps) {
               <button onClick={handleSearch} className="rounded-2xl bg-[#123d2f] px-5 py-3 text-sm font-black text-white">查询</button>
               <select value={regionId} onChange={(event) => setRegionId(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{regionOptions.map((id) => <option key={id} value={id}>{getSupervisionRegionName(id)}</option>)}</select>
               <select value={grade} onChange={(event) => setGrade(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{gradeOptions.map((item) => <option key={item}>{item}</option>)}</select>
-              <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{statusOptions.map((item) => <option key={item}>{item}</option>)}</select>
+              <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
             </div>
             <div className="mt-6 overflow-hidden rounded-2xl border border-slate-100">
               <table className="w-full text-left text-sm">

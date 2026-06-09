@@ -32,3 +32,18 @@ input {
 button {
   cursor: pointer;
 }
+
+.leaflet-tile.gis-tencent-tile {
+  filter: saturate(0.55) brightness(0.58) contrast(1.18) hue-rotate(128deg);
+}
+
+.gis-map-mask {
+  position: absolute;
+  inset: -1px;
+  width: calc(100% + 2px);
+  height: calc(100% + 2px);
+  background:
+    radial-gradient(circle at 50% 42%, rgba(6, 182, 212, 0.12), transparent 34%),
+    linear-gradient(180deg, rgba(12, 53, 44, 0.34), rgba(7, 37, 30, 0.62));
+  mix-blend-mode: multiply;
+}

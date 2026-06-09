@@ -1,13 +1,11 @@
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import { ArrowLeft, BarChart3, BatteryFull, Bug, Building2, CalendarDays, Camera, CheckCircle2, ChevronLeft, ChevronRight, ClipboardList, Clock, Coins, Droplets, FileText, LocateFixed, Maximize2, Pause, Play, RefreshCw, Search, ShieldAlert, Signal, Square, TrendingUp, Upload, Volume2, Zap } from "lucide-react";
 import SupervisionGisMap from "@/components/supervision/SupervisionGisMap";
 import {
   buildSupervisionStats,
   defaultSupervisionLayers,
   filterSupervisionProjects,
-  getSupervisionParentRegion,
   getSupervisionRegionName,
-  highStandardProjects,
   projectStatusColor,
   type DevicePoint,
   type HighStandardProject,
@@ -15,6 +13,7 @@ import {
 
 type SupervisionMapProps = {
   onBack: () => void;
+  initialView?: "screen";
 };
 
 function StatCard({ label, value, unit, icon: Icon }: { label: string; value: string | number; unit: string; icon: typeof BarChart3 }) {
@@ -25,6 +24,32 @@ function StatCard({ label, value, unit, icon: Icon }: { label: string; value: st
         <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[#123d2f] text-cyan-100"><Icon className="h-5 w-5" /></div>
       </div>
       <div className="mt-4 flex items-end gap-1"><span className="text-3xl font-black text-[#123d2f]">{value}</span><span className="pb-1 text-xs font-bold text-slate-400">{unit}</span></div>
+    </div>
+  );
+}
+
+function RegionProjectSummaryPanel({ regionName, stats, statusRows }: { regionName: string; stats: ReturnType<typeof buildSupervisionStats>; statusRows: Array<{ status: string; count: number }> }) {
+  return (
+    <div className="rounded-[2rem] border border-white/80 bg-white/88 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
+      <p className="text-sm font-black text-emerald-700">区域高标田统计</p>
+      <h3 className="mt-2 text-2xl font-black text-[#123d2f]">{regionName}</h3>
+      <div className="mt-5 grid grid-cols-2 gap-3 text-sm">
+        <div className="rounded-2xl bg-emerald-50 p-4"><b>项目数量</b><br />{stats.count} 个</div>
+        <div className="rounded-2xl bg-cyan-50 p-4"><b>建设面积</b><br />{stats.area.toLocaleString()} 亩</div>
+        <div className="rounded-2xl bg-amber-50 p-4"><b>总投资</b><br />{stats.investment.toLocaleString()} 万元</div>
+        <div className="rounded-2xl bg-blue-50 p-4"><b>平均进度</b><br />{stats.progress}%</div>
+        <div className="rounded-2xl bg-lime-50 p-4"><b>已拨付</b><br />{stats.paid.toLocaleString()} 万元</div>
+        <div className="rounded-2xl bg-red-50 p-4"><b>整改率</b><br />{stats.rectificationRate}%</div>
+      </div>
+      <div className="mt-5 space-y-3">
+        {statusRows.map((row) => (
+          <div key={row.status}>
+            <div className="mb-1 flex justify-between text-xs font-black text-slate-500"><span>{row.status}</span><span>{row.count} 个</span></div>
+            <div className="h-2 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${stats.count ? (row.count / stats.count) * 100 : 0}%`, backgroundColor: projectStatusColor(row.status as HighStandardProject["status"]) }} /></div>
+          </div>
+        ))}
+      </div>
+      <p className="mt-5 rounded-2xl bg-slate-50 p-4 text-xs font-bold leading-6 text-slate-500">下钻至肥西县后可在地图中选择具体项目区，选中后此处切换为项目属性明细。</p>
     </div>
   );
 }
@@ -364,20 +389,28 @@ export default function SupervisionMap({ onBack }: SupervisionMapProps) {
   const [regionId, setRegionId] = useState("anhui");
   const [keyword, setKeyword] = useState("");
   const [searchText, setSearchText] = useState("");
-  const [selectedProject, setSelectedProject] = useState<HighStandardProject | null>(highStandardProjects[0]);
+  const [selectedProject, setSelectedProject] = useState<HighStandardProject | null>(null);
   const [detailProject, setDetailProject] = useState<HighStandardProject | null>(null);
   const [detailDevice, setDetailDevice] = useState<DevicePoint | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("项目基本信息");
   const [layers, setLayers] = useState(defaultSupervisionLayers);
+  const regionProjects = useMemo(() => filterSupervisionProjects(regionId), [regionId]);
   const projects = useMemo(() => filterSupervisionProjects(regionId, keyword), [keyword, regionId]);
+  const mapProjects = keyword ? regionProjects : projects;
   const stats = useMemo(() => buildSupervisionStats(projects), [projects]);
   const statusRows = useMemo(() => ["建设中", "已完工", "待验收", "整改中"].map((status) => ({ status, count: projects.filter((project) => project.status === status).length })), [projects]);
+
+  useEffect(() => {
+    setKeyword("");
+    setSearchText("");
+    setSelectedProject(null);
+  }, [regionId]);
 
   const handleSearch = () => {
     const text = searchText.trim();
     setKeyword(text);
     const matched = filterSupervisionProjects(regionId, text)[0];
-    if (matched) setSelectedProject(matched);
+    setSelectedProject(matched ?? null);
   };
 
   const openProjectDetail = (project: HighStandardProject) => {
@@ -418,23 +451,27 @@ export default function SupervisionMap({ onBack }: SupervisionMapProps) {
                 {projects.slice(0, 5).map((project) => (
                   <button key={project.id} onClick={() => setSelectedProject(project)} className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${selectedProject?.id === project.id ? "border-emerald-500 bg-emerald-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
                     <div className="font-black text-[#123d2f]">{project.name}</div>
-                    <div className="mt-1 text-xs text-slate-500">{project.code} · {project.progress}%</div>
+                    <div className="mt-1 text-xs text-slate-500">{project.code} · {project.county}{project.town} · {project.progress}%</div>
                   </button>
                 ))}
               </div>
             </div>
             <div className="rounded-[2rem] border border-white/80 bg-white/84 p-5 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
-              <div className="flex items-center justify-between"><p className="text-sm font-black text-emerald-700">行政区下钻</p>{regionId !== "anhui" && <button onClick={() => setRegionId(getSupervisionParentRegion(regionId))} className="text-xs font-black text-emerald-700">返回上级</button>}</div>
-              <div className="mt-4 grid gap-2">
-                {["anhui", "hefei", "suzhou", "fuyang"].map((id) => <button key={id} onClick={() => setRegionId(id)} className={`rounded-xl px-4 py-3 text-left text-sm font-bold ${regionId === id ? "bg-[#123d2f] text-white" : "bg-emerald-50 text-[#123d2f]"}`}>{getSupervisionRegionName(id)}</button>)}
+              <p className="text-sm font-black text-emerald-700">资金与问题</p>
+              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
+                <div className="rounded-2xl bg-amber-50 p-4"><b>已拨付资金</b><br />{stats.paid.toLocaleString()} 万元</div>
+                <div className="rounded-2xl bg-red-50 p-4"><b>问题整改</b><br />{stats.rectified}/{stats.issues} 项</div>
+              </div>
+              <div className="mt-4 rounded-2xl bg-slate-50 p-4 text-xs font-bold leading-6 text-slate-500">
+                资金拨付、问题整改与项目进度联动展示，点击地图项目区可查看单项目明细。
               </div>
             </div>
           </aside>
 
-          <SupervisionGisMap projects={projects} regionId={regionId} selectedProjectId={selectedProject?.id} layers={layers} onLayersChange={setLayers} onProjectSelect={setSelectedProject} onRegionDrill={setRegionId} onOpenProjectDetail={openProjectDetail} onOpenDeviceDetail={setDetailDevice} />
+          <SupervisionGisMap projects={mapProjects} regionId={regionId} selectedProjectId={selectedProject?.id} layers={layers} onLayersChange={setLayers} onProjectSelect={setSelectedProject} onRegionDrill={setRegionId} onOpenProjectDetail={openProjectDetail} onOpenDeviceDetail={setDetailDevice} />
 
           <aside className="space-y-5">
-            <ProjectPanel project={selectedProject} onOpenDetail={openProjectDetail} />
+            {selectedProject ? <ProjectPanel project={selectedProject} onOpenDetail={openProjectDetail} /> : <RegionProjectSummaryPanel regionName={getSupervisionRegionName(regionId)} stats={stats} statusRows={statusRows} />}
             <div className="rounded-[2rem] border border-white/80 bg-white/84 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
               <p className="text-sm font-black text-emerald-700">状态分布</p>
               <div className="mt-4 space-y-4">
@@ -444,13 +481,6 @@ export default function SupervisionMap({ onBack }: SupervisionMapProps) {
                     <div className="h-3 overflow-hidden rounded-full bg-slate-100"><div className="h-full rounded-full" style={{ width: `${projects.length ? (row.count / projects.length) * 100 : 0}%`, backgroundColor: projectStatusColor(row.status as HighStandardProject["status"]) }} /></div>
                   </div>
                 ))}
-              </div>
-            </div>
-            <div className="rounded-[2rem] border border-white/80 bg-white/84 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
-              <p className="text-sm font-black text-emerald-700">资金与问题</p>
-              <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-                <div className="rounded-2xl bg-amber-50 p-4"><b>已拨付资金</b><br />{stats.paid.toLocaleString()} 万元</div>
-                <div className="rounded-2xl bg-red-50 p-4"><b>问题整改</b><br />{stats.rectified}/{stats.issues} 项</div>
               </div>
             </div>
           </aside>
