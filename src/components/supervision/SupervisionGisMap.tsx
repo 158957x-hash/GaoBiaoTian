@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { MapContainer, Marker, Polygon, useMap } from "react-leaflet";
+import { MapContainer, Marker, Polygon, Tooltip, useMap } from "react-leaflet";
 import L, { type LatLngBoundsExpression, type LatLngExpression } from "leaflet";
 import { Camera, Droplets, Layers, RadioTower, Route, Sprout } from "lucide-react";
 import { realSupervisionBoundaries } from "@/data/supervisionGeoBoundaries";
@@ -15,6 +15,15 @@ import {
   type HighStandardProject,
   type SupervisionLayers,
 } from "@/data/supervisionMap";
+
+type HeatMode = "projectCount" | "constructionArea";
+
+type HeatStats = {
+  projectCount: number;
+  area: number;
+  investment: number;
+  avgProgress: number;
+};
 
 type SelectedProjectParcel = {
   project: HighStandardProject;
@@ -46,8 +55,79 @@ type SupervisionGisMapProps = {
 const regionView: Record<string, { center: LatLngExpression; zoom: number; bounds: LatLngBoundsExpression }> = {
   anhui: { center: [31.85, 117.16], zoom: 7, bounds: [[29.2, 114.6], [34.8, 119.8]] },
   hefei: { center: [31.86, 117.22], zoom: 9, bounds: [[31.35, 116.55], [32.35, 117.95]] },
+  yaohai: { center: [31.86, 117.31], zoom: 12, bounds: [[31.78, 117.22], [31.94, 117.42]] },
+  luyang: { center: [31.88, 117.27], zoom: 12, bounds: [[31.80, 117.18], [31.96, 117.38]] },
+  shushan: { center: [31.87, 117.22], zoom: 12, bounds: [[31.78, 117.12], [31.96, 117.32]] },
+  baohe: { center: [31.79, 117.31], zoom: 12, bounds: [[31.70, 117.22], [31.88, 117.42]] },
+  changfeng: { center: [32.15, 117.18], zoom: 11, bounds: [[31.92, 116.96], [32.34, 117.42]] },
+  feidong: { center: [31.88, 117.47], zoom: 11, bounds: [[31.68, 117.20], [32.08, 117.72]] },
   feixi: { center: [31.72, 117.16], zoom: 12, bounds: [[31.5, 116.94], [31.92, 117.42]] },
+  lujian: { center: [31.56, 117.28], zoom: 11, bounds: [[31.38, 117.08], [31.74, 117.52]] },
+  chaohu: { center: [31.60, 117.58], zoom: 11, bounds: [[31.42, 117.38], [31.78, 117.82]] },
 };
+
+const heatDataPresets: Record<string, HeatStats> = {
+  hefei: { projectCount: 8, area: 4.2, investment: 2.1, avgProgress: 82 },
+  wuhu: { projectCount: 5, area: 2.8, investment: 1.4, avgProgress: 78 },
+  bengbu: { projectCount: 7, area: 3.5, investment: 1.7, avgProgress: 80 },
+  huainan: { projectCount: 4, area: 2.2, investment: 1.1, avgProgress: 75 },
+  maanshan: { projectCount: 3, area: 1.8, investment: 0.9, avgProgress: 72 },
+  huaibei: { projectCount: 6, area: 3.2, investment: 1.6, avgProgress: 79 },
+  tongling: { projectCount: 2, area: 1.2, investment: 0.6, avgProgress: 68 },
+  anqing: { projectCount: 9, area: 4.8, investment: 2.4, avgProgress: 84 },
+  huangshan: { projectCount: 1, area: 0.6, investment: 0.3, avgProgress: 65 },
+  chuzhou: { projectCount: 7, area: 3.8, investment: 1.9, avgProgress: 81 },
+  fuyang: { projectCount: 11, area: 5.8, investment: 2.9, avgProgress: 86 },
+  suzhou: { projectCount: 9, area: 4.6, investment: 2.3, avgProgress: 83 },
+  liuan: { projectCount: 5, area: 2.6, investment: 1.3, avgProgress: 76 },
+  bozhou: { projectCount: 8, area: 4.4, investment: 2.2, avgProgress: 85 },
+  chizhou: { projectCount: 3, area: 1.6, investment: 0.8, avgProgress: 70 },
+  xuancheng: { projectCount: 4, area: 2.4, investment: 1.2, avgProgress: 74 },
+  yaohai: { projectCount: 2, area: 0.8, investment: 0.4, avgProgress: 88 },
+  luyang: { projectCount: 3, area: 1.2, investment: 0.6, avgProgress: 85 },
+  shushan: { projectCount: 4, area: 1.6, investment: 0.8, avgProgress: 82 },
+  baohe: { projectCount: 3, area: 1.3, investment: 0.65, avgProgress: 84 },
+  changfeng: { projectCount: 5, area: 2.2, investment: 1.1, avgProgress: 79 },
+  feidong: { projectCount: 6, area: 2.8, investment: 1.4, avgProgress: 77 },
+  feixi: { projectCount: 7, area: 3.2, investment: 1.6, avgProgress: 80 },
+  lujian: { projectCount: 4, area: 1.8, investment: 0.9, avgProgress: 78 },
+  chaohu: { projectCount: 5, area: 2.4, investment: 1.2, avgProgress: 76 },
+};
+
+const heatLegends: Record<HeatMode, Array<{ label: string; color: string }>> = {
+  projectCount: [
+    { label: "0 个", color: "#e5e7eb" },
+    { label: "1-3 个", color: "#d9f99d" },
+    { label: "4-6 个", color: "#a3e635" },
+    { label: "7-10 个", color: "#65a30d" },
+    { label: "11+ 个", color: "#ca8a04" },
+  ],
+  constructionArea: [
+    { label: "0 万亩", color: "#e5e7eb" },
+    { label: "0.5-1.5 万亩", color: "#d9f99d" },
+    { label: "1.5-3.0 万亩", color: "#a3e635" },
+    { label: "3.0-5.0 万亩", color: "#65a30d" },
+    { label: "5.0+ 万亩", color: "#ca8a04" },
+  ],
+};
+
+function getHeatColor(value: number, mode: HeatMode): string {
+  if (value <= 0) return "#e5e7eb";
+  if (mode === "projectCount") {
+    if (value <= 3) return "#d9f99d";
+    if (value <= 6) return "#a3e635";
+    if (value <= 10) return "#65a30d";
+    return "#ca8a04";
+  }
+  if (value <= 1.5) return "#d9f99d";
+  if (value <= 3.0) return "#a3e635";
+  if (value <= 5.0) return "#65a30d";
+  return "#ca8a04";
+}
+
+function getHeatValue(stats: HeatStats, mode: HeatMode): number {
+  return mode === "projectCount" ? stats.projectCount : stats.area;
+}
 
 const gradePalette = ["#0f766e", "#16a34a", "#22c55e", "#65a30d", "#84cc16", "#a3e635", "#facc15", "#f59e0b", "#f97316", "#ef4444"];
 
@@ -172,6 +252,7 @@ function RegionCascade({ regionId, onRegionChange }: { regionId: string; onRegio
 
 export default function SupervisionGisMap({ projects, regionId, selectedProjectId, selectedParcel, layers, onLayersChange, onProjectSelect, onRegionDrill, onOpenDeviceDetail }: SupervisionGisMapProps) {
   const [selectedItem, setSelectedItem] = useState<SelectedMapItem | null>(null);
+  const [heatMode, setHeatMode] = useState<HeatMode>("projectCount");
   const externalSelectedProject = selectedParcel ? projects.find((project) => project.id === selectedParcel.projectId) : undefined;
   const externalSelectedPath = externalSelectedProject?.parcelPaths[selectedParcel?.index ?? -1];
   const activeParcelKey = selectedItem?.type === "parcel" ? `${selectedItem.item.project.id}-${selectedItem.item.index}` : selectedParcel ? `${selectedParcel.projectId}-${selectedParcel.index}` : "";
@@ -203,24 +284,42 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
         <RecenterMap regionId={regionId} />
         <FocusParcel path={externalSelectedPath} />
 
-        {layers.boundary && currentBoundaries.map((boundary) => (
-          <Fragment key={boundary.id}>
-            {boundary.paths.map((path, pathIndex) => (
-              <Polygon
-                key={`${boundary.id}-${pathIndex}`}
-                positions={path}
-                pathOptions={{
-                  color: boundary.highlighted ? "#22d3ee" : "#60a5fa",
-                  weight: boundary.highlighted ? 4 : 1.4,
-                  dashArray: boundary.highlighted ? undefined : "8 8",
-                  fillColor: boundary.highlighted ? "#0ea5e9" : "#1e3a8a",
-                  fillOpacity: boundary.highlighted ? 0.2 : 0.08
-                }}
-                eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined}
-              />
-            ))}
-          </Fragment>
-        ))}
+        {layers.boundary && currentBoundaries.map((boundary) => {
+          const stats = heatDataPresets[boundary.id] ?? { projectCount: 0, area: 0, investment: 0, avgProgress: 0 };
+          const heatValue = getHeatValue(stats, heatMode);
+          const heatColor = getHeatColor(heatValue, heatMode);
+          const isCountyLevel = !boundary.drillable && regionId !== "anhui";
+          return (
+            <Fragment key={boundary.id}>
+              {boundary.paths.map((path, pathIndex) => (
+                <Polygon
+                  key={`${boundary.id}-${pathIndex}`}
+                  positions={path}
+                  pathOptions={{
+                    color: boundary.highlighted ? "#f8fafc" : "rgba(255,255,255,.78)",
+                    weight: boundary.highlighted ? 3.2 : 1.4,
+                    dashArray: undefined,
+                    fillColor: heatColor,
+                    fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
+                  }}
+                  eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined}
+                >
+                  {!isCountyLevel && (
+                    <Tooltip sticky direction="top" opacity={0.96}>
+                      <div className="min-w-40 text-sm leading-6">
+                        <div className="font-black text-[#123d2f]">{boundary.name}</div>
+                        <div>高标田项目：{stats.projectCount} 个</div>
+                        <div>建设面积：{stats.area.toFixed(1)} 万亩</div>
+                        <div>投资金额：{stats.investment.toFixed(1)} 亿元</div>
+                        <div>平均进度：{stats.avgProgress}%</div>
+                      </div>
+                    </Tooltip>
+                  )}
+                </Polygon>
+              ))}
+            </Fragment>
+          );
+        })}
         {layers.projects && showProjectLayers && projects.map((project) => {
           const projectSelected = selectedItem?.type === "project" && project.id === selectedProjectId;
           return (
@@ -268,6 +367,34 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
       </MapContainer>
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[400] h-24 bg-gradient-to-b from-slate-950/32 to-transparent" />
       <RegionCascade regionId={regionId} onRegionChange={onRegionDrill} />
+      {regionId !== "feixi" && (
+        <div className="absolute right-5 top-20 z-[500] rounded-2xl border border-white/18 bg-slate-950/72 p-4 text-white shadow-2xl backdrop-blur-xl">
+          <div className="mb-3 text-sm font-black text-cyan-100">高标田建设热力</div>
+          <div className="mb-3 flex gap-2">
+            <button
+              onClick={() => setHeatMode("projectCount")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${heatMode === "projectCount" ? "bg-cyan-500 text-white" : "bg-white/10 text-cyan-100 hover:bg-white/20"}`}
+            >
+              项目数量
+            </button>
+            <button
+              onClick={() => setHeatMode("constructionArea")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${heatMode === "constructionArea" ? "bg-cyan-500 text-white" : "bg-white/10 text-cyan-100 hover:bg-white/20"}`}
+            >
+              建设面积
+            </button>
+          </div>
+          <div className="text-xs text-cyan-50/70">{heatMode === "projectCount" ? "按项目数量分级设色" : "按建设面积分级设色"}</div>
+          <div className="mt-3 space-y-2">
+            {heatLegends[heatMode].map((item) => (
+              <div key={item.label} className="flex items-center gap-2">
+                <span className="h-4 w-4 rounded" style={{ backgroundColor: item.color }} />
+                <span className="text-xs text-cyan-50">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="absolute bottom-5 left-5 z-[500] w-56 rounded-3xl border border-white/18 bg-slate-950/68 p-4 text-white shadow-2xl backdrop-blur-xl">
         <div className="mb-3 flex items-center gap-2 text-sm font-black"><Layers className="h-4 w-4 text-cyan-200" />图层控制</div>
         {layerRows().map(([key, label, Icon]) => (

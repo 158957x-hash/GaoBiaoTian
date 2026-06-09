@@ -1,10 +1,18 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { CircleMarker, MapContainer, Marker, Polygon, useMap } from "react-leaflet";
+import { CircleMarker, MapContainer, Marker, Polygon, Tooltip, useMap } from "react-leaflet";
 import L, { type LatLngBoundsExpression, type LatLngExpression } from "leaflet";
 import { FlaskConical, Grid3X3, Layers, MapPinned, RadioTower, Sprout } from "lucide-react";
 import { realSupervisionBoundaries } from "@/data/supervisionGeoBoundaries";
 import { getSupervisionParentRegion, getSupervisionRegionName, supervisionRegions } from "@/data/supervisionMap";
 import { type SupplementaryLayers, type SupplementaryParcel } from "@/data/supplementaryLand";
+
+type SupplementaryHeatMode = "projectCount" | "acceptanceArea";
+
+type SupplementaryHeatStats = {
+  projectCount: number;
+  area: number;
+  avgGrade: number;
+};
 
 type SupplementaryProjectBoundary = {
   id: string;
@@ -34,8 +42,79 @@ type SupplementaryLandMapProps = {
 const regionView: Record<string, { center: LatLngExpression; zoom: number; bounds: LatLngBoundsExpression }> = {
   anhui: { center: [31.85, 117.16], zoom: 7, bounds: [[29.2, 114.6], [34.8, 119.8]] },
   hefei: { center: [31.86, 117.22], zoom: 9, bounds: [[31.35, 116.55], [32.35, 117.95]] },
+  yaohai: { center: [31.86, 117.31], zoom: 12, bounds: [[31.78, 117.22], [31.94, 117.42]] },
+  luyang: { center: [31.88, 117.27], zoom: 12, bounds: [[31.80, 117.18], [31.96, 117.38]] },
+  shushan: { center: [31.87, 117.22], zoom: 12, bounds: [[31.78, 117.12], [31.96, 117.32]] },
+  baohe: { center: [31.79, 117.31], zoom: 12, bounds: [[31.70, 117.22], [31.88, 117.42]] },
+  changfeng: { center: [32.15, 117.18], zoom: 11, bounds: [[31.92, 116.96], [32.34, 117.42]] },
+  feidong: { center: [31.88, 117.47], zoom: 11, bounds: [[31.68, 117.20], [32.08, 117.72]] },
   feixi: { center: [31.72, 117.16], zoom: 12, bounds: [[31.5, 116.94], [31.92, 117.42]] },
+  lujian: { center: [31.56, 117.28], zoom: 11, bounds: [[31.38, 117.08], [31.74, 117.52]] },
+  chaohu: { center: [31.60, 117.58], zoom: 11, bounds: [[31.42, 117.38], [31.78, 117.82]] },
 };
+
+const supplementaryHeatData: Record<string, SupplementaryHeatStats> = {
+  hefei: { projectCount: 6, area: 2.8, avgGrade: 5.2 },
+  wuhu: { projectCount: 4, area: 1.9, avgGrade: 5.8 },
+  bengbu: { projectCount: 5, area: 2.4, avgGrade: 5.5 },
+  huainan: { projectCount: 3, area: 1.5, avgGrade: 6.1 },
+  maanshan: { projectCount: 2, area: 1.0, avgGrade: 6.4 },
+  huaibei: { projectCount: 4, area: 2.1, avgGrade: 5.9 },
+  tongling: { projectCount: 1, area: 0.6, avgGrade: 6.8 },
+  anqing: { projectCount: 7, area: 3.2, avgGrade: 5.0 },
+  huangshan: { projectCount: 1, area: 0.4, avgGrade: 7.2 },
+  chuzhou: { projectCount: 5, area: 2.6, avgGrade: 5.3 },
+  fuyang: { projectCount: 8, area: 3.8, avgGrade: 4.8 },
+  suzhou: { projectCount: 7, area: 3.4, avgGrade: 4.9 },
+  liuan: { projectCount: 4, area: 2.0, avgGrade: 5.6 },
+  bozhou: { projectCount: 6, area: 2.9, avgGrade: 5.1 },
+  chizhou: { projectCount: 2, area: 1.1, avgGrade: 6.5 },
+  xuancheng: { projectCount: 3, area: 1.6, avgGrade: 6.0 },
+  yaohai: { projectCount: 1, area: 0.5, avgGrade: 6.2 },
+  luyang: { projectCount: 2, area: 0.9, avgGrade: 5.8 },
+  shushan: { projectCount: 3, area: 1.3, avgGrade: 5.5 },
+  baohe: { projectCount: 2, area: 0.8, avgGrade: 5.9 },
+  changfeng: { projectCount: 4, area: 1.8, avgGrade: 5.2 },
+  feidong: { projectCount: 5, area: 2.2, avgGrade: 5.0 },
+  feixi: { projectCount: 6, area: 2.6, avgGrade: 4.8 },
+  lujian: { projectCount: 3, area: 1.4, avgGrade: 5.4 },
+  chaohu: { projectCount: 4, area: 1.9, avgGrade: 5.1 },
+};
+
+const supplementaryHeatLegends: Record<SupplementaryHeatMode, Array<{ label: string; color: string }>> = {
+  projectCount: [
+    { label: "0 个", color: "#e5e7eb" },
+    { label: "1-2 个", color: "#d9f99d" },
+    { label: "3-4 个", color: "#a3e635" },
+    { label: "5-6 个", color: "#65a30d" },
+    { label: "7+ 个", color: "#ca8a04" },
+  ],
+  acceptanceArea: [
+    { label: "0 万亩", color: "#e5e7eb" },
+    { label: "0.3-1.0 万亩", color: "#d9f99d" },
+    { label: "1.0-2.0 万亩", color: "#a3e635" },
+    { label: "2.0-3.0 万亩", color: "#65a30d" },
+    { label: "3.0+ 万亩", color: "#ca8a04" },
+  ],
+};
+
+function getSupplementaryHeatColor(value: number, mode: SupplementaryHeatMode): string {
+  if (value <= 0) return "#e5e7eb";
+  if (mode === "projectCount") {
+    if (value <= 2) return "#d9f99d";
+    if (value <= 4) return "#a3e635";
+    if (value <= 6) return "#65a30d";
+    return "#ca8a04";
+  }
+  if (value <= 1.0) return "#d9f99d";
+  if (value <= 2.0) return "#a3e635";
+  if (value <= 3.0) return "#65a30d";
+  return "#ca8a04";
+}
+
+function getSupplementaryHeatValue(stats: SupplementaryHeatStats, mode: SupplementaryHeatMode): number {
+  return mode === "projectCount" ? stats.projectCount : stats.area;
+}
 
 const gradePalette = ["#0f766e", "#16a34a", "#22c55e", "#65a30d", "#84cc16", "#a3e635", "#facc15", "#f59e0b", "#f97316", "#ef4444"];
 const acceptanceColor = "#38bdf8";
@@ -192,6 +271,7 @@ function buildProjectBoundaries(parcels: SupplementaryParcel[]) {
 
 export default function SupplementaryLandMap({ parcels, regionId, selectedParcelId, selectedProjectName, layers, onLayersChange, onParcelSelect, onProjectSelect, onRegionDrill }: SupplementaryLandMapProps) {
   const [selectedUnit, setSelectedUnit] = useState<SelectedUnit | null>(null);
+  const [heatMode, setHeatMode] = useState<SupplementaryHeatMode>("projectCount");
   const selectedParcel = selectedParcelId ? parcels.find((parcel) => parcel.id === selectedParcelId) : null;
   const mapBounds = regionView[regionId]?.bounds ?? regionView.anhui.bounds;
   const currentBoundaries = realSupervisionBoundaries[regionId as keyof typeof realSupervisionBoundaries] ?? realSupervisionBoundaries.anhui;
@@ -204,13 +284,41 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedParcel
         <OfflineBasemap />
         <RecenterMap regionId={regionId} />
         <FocusParcel parcel={selectedParcel} />
-        {layers.boundary && currentBoundaries.map((boundary) => (
-          <Fragment key={boundary.id}>
-            {boundary.paths.map((path, pathIndex) => (
-              <Polygon key={`${boundary.id}-${pathIndex}`} positions={path} pathOptions={{ color: boundary.highlighted ? "#b9d5eb" : "#6f96b6", weight: boundary.highlighted ? 3.4 : 1.2, fillColor: boundary.highlighted ? "#7fa0bd" : "#6e8fad", fillOpacity: boundary.highlighted ? 0.46 : 0.22 }} eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined} />
-            ))}
-          </Fragment>
-        ))}
+        {layers.boundary && currentBoundaries.map((boundary) => {
+          const stats = supplementaryHeatData[boundary.id] ?? { projectCount: 0, area: 0, avgGrade: 0 };
+          const heatValue = getSupplementaryHeatValue(stats, heatMode);
+          const heatColor = getSupplementaryHeatColor(heatValue, heatMode);
+          const isCountyLevel = !boundary.drillable && regionId !== "anhui";
+          return (
+            <Fragment key={boundary.id}>
+              {boundary.paths.map((path, pathIndex) => (
+                <Polygon
+                  key={`${boundary.id}-${pathIndex}`}
+                  positions={path}
+                  pathOptions={{
+                    color: boundary.highlighted ? "#f8fafc" : "rgba(255,255,255,.78)",
+                    weight: boundary.highlighted ? 3.2 : 1.4,
+                    dashArray: undefined,
+                    fillColor: heatColor,
+                    fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
+                  }}
+                  eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined}
+                >
+                  {!isCountyLevel && (
+                    <Tooltip sticky direction="top" opacity={0.96}>
+                      <div className="min-w-40 text-sm leading-6">
+                        <div className="font-black text-[#123d2f]">{boundary.name}</div>
+                        <div>补充耕地项目：{stats.projectCount} 个</div>
+                        <div>验收面积：{stats.area.toFixed(1)} 万亩</div>
+                        <div>平均等级：{stats.avgGrade.toFixed(1)} 等</div>
+                      </div>
+                    </Tooltip>
+                  )}
+                </Polygon>
+              ))}
+            </Fragment>
+          );
+        })}
         {showParcelLayers && layers.parcels && parcels.map((parcel) => (
           <Fragment key={parcel.id}>
             {parcel.unitPaths.map((path, index) => {
@@ -232,6 +340,34 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedParcel
       </MapContainer>
       <RegionCascade regionId={regionId} onRegionChange={onRegionDrill} />
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[400] h-24 bg-gradient-to-b from-[#001b31]/54 to-transparent" />
+      {regionId !== "feixi" && (
+        <div className="absolute right-5 top-20 z-[500] rounded-2xl border border-white/18 bg-slate-950/72 p-4 text-white shadow-2xl backdrop-blur-xl">
+          <div className="mb-3 text-sm font-black text-cyan-100">补充耕地热力</div>
+          <div className="mb-3 flex gap-2">
+            <button
+              onClick={() => setHeatMode("projectCount")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${heatMode === "projectCount" ? "bg-cyan-500 text-white" : "bg-white/10 text-cyan-100 hover:bg-white/20"}`}
+            >
+              项目数量
+            </button>
+            <button
+              onClick={() => setHeatMode("acceptanceArea")}
+              className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${heatMode === "acceptanceArea" ? "bg-cyan-500 text-white" : "bg-white/10 text-cyan-100 hover:bg-white/20"}`}
+            >
+              验收面积
+            </button>
+          </div>
+          <div className="text-xs text-cyan-50/70">{heatMode === "projectCount" ? "按项目数量分级设色" : "按验收面积分级设色"}</div>
+          <div className="mt-3 space-y-2">
+            {supplementaryHeatLegends[heatMode].map((item) => (
+              <div key={item.label} className="flex items-center gap-2">
+                <span className="h-4 w-4 rounded" style={{ backgroundColor: item.color }} />
+                <span className="text-xs text-cyan-50">{item.label}</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="absolute bottom-5 left-5 z-[500] w-56 rounded-3xl border border-sky-200/18 bg-[#001b31]/72 p-4 text-white shadow-2xl backdrop-blur-xl">
         <div className="mb-3 flex items-center gap-2 text-sm font-black"><Layers className="h-4 w-4 text-sky-200" />图层控制</div>
         {layerRows().map(([key, label, Icon]) => (

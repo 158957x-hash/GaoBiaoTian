@@ -1,9 +1,15 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { MapContainer, Marker, Polygon, useMap } from "react-leaflet";
+import { MapContainer, Marker, Polygon, Tooltip, useMap } from "react-leaflet";
 import L, { type LatLngBoundsExpression, type LatLngExpression } from "leaflet";
 import { Layers, LocateFixed } from "lucide-react";
 import { realSupervisionBoundaries } from "@/data/supervisionGeoBoundaries";
 import { getRegionName, regions, type Plot } from "@/data/permanentFarmland";
+
+type PermanentHeatStats = {
+  area: number;
+  avgGrade: number;
+  protectionRate: number;
+};
 
 type LayerState = {
   farmland: boolean;
@@ -37,16 +43,56 @@ type SelectedMapItem =
 const regionView: Record<string, { center: LatLngExpression; zoom: number; bounds: LatLngBoundsExpression }> = {
   anhui: { center: [31.85, 117.25], zoom: 7, bounds: [[29.2, 114.6], [34.8, 119.8]] },
   hefei: { center: [31.86, 117.28], zoom: 10, bounds: [[31.35, 116.65], [32.35, 117.95]] },
+  yaohai: { center: [31.86, 117.31], zoom: 12, bounds: [[31.78, 117.22], [31.94, 117.42]] },
+  luyang: { center: [31.88, 117.27], zoom: 12, bounds: [[31.80, 117.18], [31.96, 117.38]] },
+  shushan: { center: [31.87, 117.22], zoom: 12, bounds: [[31.78, 117.12], [31.96, 117.32]] },
+  baohe: { center: [31.79, 117.31], zoom: 12, bounds: [[31.70, 117.22], [31.88, 117.42]] },
+  changfeng: { center: [32.15, 117.18], zoom: 11, bounds: [[31.92, 116.96], [32.34, 117.42]] },
+  feidong: { center: [31.88, 117.47], zoom: 11, bounds: [[31.68, 117.20], [32.08, 117.72]] },
+  feixi: { center: [31.72, 117.16], zoom: 12, bounds: [[31.5, 116.94], [31.92, 117.42]] },
+  lujian: { center: [31.56, 117.28], zoom: 11, bounds: [[31.38, 117.08], [31.74, 117.52]] },
+  chaohu: { center: [31.60, 117.58], zoom: 11, bounds: [[31.42, 117.38], [31.78, 117.82]] },
   suzhou: { center: [33.63, 116.98], zoom: 10, bounds: [[33.05, 116.35], [34.15, 117.65]] },
   fuyang: { center: [32.9, 115.82], zoom: 10, bounds: [[32.35, 115.15], [33.35, 116.45]] },
-  changfeng: { center: [32.15, 117.18], zoom: 12, bounds: [[31.92, 116.96], [32.34, 117.42]] },
-  feidong: { center: [31.88, 117.47], zoom: 12, bounds: [[31.68, 117.2], [32.08, 117.72]] },
-  feixi: { center: [31.72, 117.16], zoom: 12, bounds: [[31.5, 116.94], [31.92, 117.42]] },
   yongqiao: { center: [33.65, 116.99], zoom: 12, bounds: [[33.38, 116.72], [33.9, 117.28]] },
   lingbi: { center: [33.55, 117.55], zoom: 12, bounds: [[33.3, 117.25], [33.82, 117.85]] },
   yingzhou: { center: [32.87, 115.82], zoom: 12, bounds: [[32.66, 115.56], [33.1, 116.08]] },
   taihe: { center: [33.16, 115.62], zoom: 12, bounds: [[32.95, 115.36], [33.38, 115.9]] },
 };
+
+const permanentHeatData: Record<string, PermanentHeatStats> = {
+  hefei: { area: 285, avgGrade: 5.2, protectionRate: 92 },
+  wuhu: { area: 198, avgGrade: 5.8, protectionRate: 88 },
+  bengbu: { area: 312, avgGrade: 5.5, protectionRate: 90 },
+  huainan: { area: 156, avgGrade: 6.1, protectionRate: 85 },
+  maanshan: { area: 142, avgGrade: 6.4, protectionRate: 83 },
+  huaibei: { area: 268, avgGrade: 5.9, protectionRate: 89 },
+  tongling: { area: 85, avgGrade: 6.8, protectionRate: 80 },
+  anqing: { area: 342, avgGrade: 5.0, protectionRate: 91 },
+  huangshan: { area: 68, avgGrade: 7.2, protectionRate: 75 },
+  chuzhou: { area: 298, avgGrade: 5.3, protectionRate: 90 },
+  fuyang: { area: 385, avgGrade: 4.8, protectionRate: 93 },
+  suzhou: { area: 356, avgGrade: 4.9, protectionRate: 92 },
+  liuan: { area: 224, avgGrade: 5.6, protectionRate: 87 },
+  bozhou: { area: 278, avgGrade: 5.1, protectionRate: 90 },
+  chizhou: { area: 112, avgGrade: 6.5, protectionRate: 82 },
+  xuancheng: { area: 186, avgGrade: 6.0, protectionRate: 86 },
+  yaohai: { area: 28, avgGrade: 6.5, protectionRate: 78 },
+  luyang: { area: 35, avgGrade: 6.2, protectionRate: 82 },
+  shushan: { area: 42, avgGrade: 5.8, protectionRate: 85 },
+  baohe: { area: 38, avgGrade: 6.0, protectionRate: 83 },
+  changfeng: { area: 68, avgGrade: 5.4, protectionRate: 88 },
+  feidong: { area: 72, avgGrade: 5.2, protectionRate: 86 },
+  feixi: { area: 58, avgGrade: 5.0, protectionRate: 90 },
+  lujian: { area: 52, avgGrade: 5.6, protectionRate: 84 },
+  chaohu: { area: 48, avgGrade: 5.8, protectionRate: 81 },
+};
+
+function getGradeHeatColor(avgGrade: number): string {
+  const gradePalette = ["#0f766e", "#16a34a", "#22c55e", "#65a30d", "#84cc16", "#a3e635", "#facc15", "#f59e0b", "#f97316", "#ef4444"];
+  const index = Math.min(Math.max(Math.round(avgGrade), 1), 10) - 1;
+  return gradePalette[index];
+}
 
 const boundaryPolygons: Record<string, Array<{ id: string; name: string; path: LatLngExpression[] }>> = {
   suzhou: [
@@ -160,14 +206,40 @@ export default function FarmlandMap({ plots, regionId, selectedPlotId, layers, o
       <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#001b31]" scrollWheelZoom>
         <OfflineBasemap />
         <RecenterMap regionId={regionId} />
-        {layers.boundary && visibleRealBoundaries?.map((boundary) => (
-          <Fragment key={boundary.id}>
-            {boundary.paths.map((path, pathIndex) => (
-              <Polygon key={`${boundary.id}-${pathIndex}`} positions={path} pathOptions={{ color: boundary.highlighted ? "#22d3ee" : "#60a5fa", weight: boundary.highlighted ? 4 : 1.4, dashArray: boundary.highlighted ? undefined : "8 8", fillColor: boundary.highlighted ? "#0ea5e9" : "#1e3a8a", fillOpacity: boundary.highlighted ? 0.2 : 0.08 }} eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined} />
-            ))}
-            <Marker position={getPathCenter(boundary.paths[0])} icon={createRegionLabelIcon(boundary.name)} eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined} />
-          </Fragment>
-        ))}
+        {layers.boundary && visibleRealBoundaries?.map((boundary) => {
+          const stats = permanentHeatData[boundary.id] ?? { area: 0, avgGrade: 0, protectionRate: 0 };
+          const heatColor = getGradeHeatColor(stats.avgGrade);
+          return (
+            <Fragment key={boundary.id}>
+              {boundary.paths.map((path, pathIndex) => (
+                <Polygon
+                  key={`${boundary.id}-${pathIndex}`}
+                  positions={path}
+                  pathOptions={{
+                    color: boundary.highlighted ? "#f8fafc" : "rgba(255,255,255,.78)",
+                    weight: boundary.highlighted ? 3.2 : 1.4,
+                    dashArray: undefined,
+                    fillColor: heatColor,
+                    fillOpacity: isCounty ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
+                  }}
+                  eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined}
+                >
+                  {!isCounty && (
+                    <Tooltip sticky direction="top" opacity={0.96}>
+                      <div className="min-w-40 text-sm leading-6">
+                        <div className="font-black text-[#123d2f]">{boundary.name}</div>
+                        <div>永久农田面积：{stats.area} 万亩</div>
+                        <div>平均质量等级：{stats.avgGrade.toFixed(1)} 等</div>
+                        <div>划定比例：{stats.protectionRate}%</div>
+                      </div>
+                    </Tooltip>
+                  )}
+                </Polygon>
+              ))}
+              <Marker position={getPathCenter(boundary.paths[0])} icon={createRegionLabelIcon(boundary.name)} eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined} />
+            </Fragment>
+          );
+        })}
         {layers.boundary && visibleFallbackBoundaries.map((boundary) => (
           <Fragment key={boundary.id}>
             <Polygon positions={boundary.path} pathOptions={{ color: "#22d3ee", weight: 2, dashArray: "8 8", fillColor: "#1e3a8a", fillOpacity: 0.08 }} eventHandlers={{ click: () => onRegionDrill(boundary.id) }} />
@@ -195,9 +267,20 @@ export default function FarmlandMap({ plots, regionId, selectedPlotId, layers, o
         <div className="text-xs font-bold text-cyan-100/65">永久基本农田质量一张图</div>
         <div className="text-xl font-black">{getRegionName(regionId)}</div>
       </div>
-      <div className="absolute right-4 top-4 z-[500] rounded-2xl border border-white/18 bg-slate-950/62 px-4 py-3 text-xs text-cyan-50 shadow-2xl backdrop-blur-xl">
-        自绘等级地块 · 高标田项目范围叠加
-      </div>
+      {!isCounty && (
+        <div className="absolute right-5 top-20 z-[500] rounded-2xl border border-white/18 bg-slate-950/72 p-4 text-white shadow-2xl backdrop-blur-xl">
+          <div className="mb-3 text-sm font-black text-cyan-100">永久农田质量热力</div>
+          <div className="text-xs text-cyan-50/70">按平均质量等级分级设色</div>
+          <div className="mt-3 grid grid-cols-5 gap-2">
+            {["#0f766e", "#16a34a", "#22c55e", "#65a30d", "#84cc16", "#a3e635", "#facc15", "#f59e0b", "#f97316", "#ef4444"].map((color, index) => (
+              <div key={color} className="flex flex-col items-center gap-1">
+                <span className="h-4 w-4 rounded" style={{ backgroundColor: color }} />
+                <span className="text-xs text-cyan-50">{index + 1}等</span>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
       <div className="absolute bottom-5 left-5 z-[500] w-56 rounded-3xl border border-white/18 bg-slate-950/68 p-4 text-white shadow-2xl backdrop-blur-xl">
         <div className="mb-3 flex items-center gap-2 text-sm font-black"><Layers className="h-4 w-4 text-cyan-200" />图层控制</div>
         {[
