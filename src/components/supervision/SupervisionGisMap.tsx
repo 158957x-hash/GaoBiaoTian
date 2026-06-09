@@ -222,7 +222,7 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
           </Fragment>
         ))}
         {layers.projects && showProjectLayers && projects.map((project) => {
-          const projectSelected = project.id === selectedProjectId && selectedItem?.type !== "parcel";
+          const projectSelected = selectedItem?.type === "project" && project.id === selectedProjectId;
           return (
             <Fragment key={project.id}>
               {project.parcelPaths.map((path, index) => {
@@ -241,7 +241,6 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
                     }}
                     eventHandlers={{
                       click: () => {
-                        onProjectSelect(project);
                         setSelectedItem({ type: "parcel", item: { project, index, path, level, area: parcelArea(project, index) } });
                       },
                     }}
