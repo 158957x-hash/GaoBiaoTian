@@ -41,16 +41,14 @@ const acceptanceStatuses: SupplementaryStatus[] = ["待鉴定", "县级初验", 
 const qualityLevelPalette = ["#0f766e", "#16a34a", "#22c55e", "#65a30d", "#84cc16", "#a3e635", "#facc15", "#f59e0b", "#f97316", "#ef4444"];
 
 function historicalStats(parcels: SupplementaryParcel[]) {
-  const sampleArea = parcels.reduce((sum, parcel) => sum + parcel.area, 0);
-  const sampleProjects = Math.max(projectNameCounts(parcels), 1);
-  const regionFactor = Math.max(parcels.length / 4, 1);
-  const projectCount = Math.round(sampleProjects * 9.6 + regionFactor * 1.8);
-  const parcelCount = Math.round(parcels.length * 18.5 + regionFactor * 12);
-  const supplementaryArea = Number((sampleArea * 42.6 + projectCount * 18.4).toFixed(1));
-  const completedRate = Number(Math.min(96.8, 78.4 + passedCount(parcels) * 1.7 + regionFactor * 0.9).toFixed(1));
-  const storageArea = Number((supplementaryArea * (0.72 + completedRate / 520)).toFixed(1));
-  const qualityRate = Number(Math.min(98.6, 82.3 + parcels.filter((parcel) => ["优等", "良等"].includes(parcel.qualityGrade)).length * 0.8 + regionFactor * 0.45).toFixed(1));
-  const rectificationCount = Math.max(3, Math.round(parcelCount * (0.038 + (100 - qualityRate) / 1800)));
+  const projectCount = projectNameCounts(parcels);
+  const parcelCount = parcels.length;
+  const supplementaryArea = Number(parcels.reduce((sum, parcel) => sum + parcel.area, 0).toFixed(1));
+  const passed = passedCount(parcels);
+  const completedRate = parcelCount > 0 ? Number(((passed / parcelCount) * 100).toFixed(1)) : 0;
+  const storageArea = Number((supplementaryArea * (completedRate / 100)).toFixed(1));
+  const qualityRate = parcelCount > 0 ? Number(((parcels.filter((parcel) => ["优等", "良等"].includes(parcel.qualityGrade)).length / parcelCount) * 100).toFixed(1)) : 0;
+  const rectificationCount = parcels.filter((parcel) => parcel.status === "整改中").length;
   return { projectCount, parcelCount, supplementaryArea, completedRate, storageArea, qualityRate, rectificationCount };
 }
 
