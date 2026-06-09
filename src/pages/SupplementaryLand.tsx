@@ -6,7 +6,6 @@ import {
   buildSupplementaryStats,
   defaultSupplementaryLayers,
   filterSupplementaryParcels,
-  supplementaryGradeColor,
   type SupplementaryParcel,
   type SupplementaryStatus,
 } from "@/data/supplementaryLand";
@@ -100,6 +99,37 @@ function statusTone(status: SupplementaryStatus) {
   if (status === "整改中") return "bg-orange-400";
   if (status === "市级复核" || status === "县级初验") return "bg-sky-500";
   return "bg-slate-400";
+}
+
+const qualityDatabaseHeaders = ["地块编号", "面积（亩）", "行政区化", "补充耕地类型", "变更前具体用途", "变更前土地利用现状分类", "变更前土地利用现状编码", "地形类型", "地形部位", "土壤类型", "补充耕地来源", "基础设施", "土地利用方式", "是否有客土", "当前阶段", "农业生产符合性评价", "耕地质量等级评价", "操作"];
+
+function qualityDatabaseRow(parcel: SupplementaryParcel, index: number) {
+  const level = parcelQualityLevel(parcel);
+  const isConstruction = index % 4 > 0;
+  const slope = level > 7 ? "山地" : level > 5 ? "丘陵" : "平原";
+  const terrainPart = slope === "山地" ? "山麓缓坡" : slope === "丘陵" ? "丘陵坡脚" : level > 3 ? "平原低阶" : "平原中阶";
+  const facility = parcel.status === "整改中" ? "基本满足" : level > 6 ? "满足" : "充分满足";
+  const source = isConstruction ? "垦造" : "恢复";
+  const useType = parcel.landType === "水田" ? "水田" : parcel.landType === "水浇地" ? "水浇地" : "旱地";
+  return [
+    parcel.code,
+    parcel.area.toFixed(2),
+    `${parcel.county}${parcel.town}`,
+    isConstruction ? "非农建设补充耕地" : "进出平衡补充耕地",
+    index % 3 === 0 ? "工矿企业建设" : index % 3 === 1 ? "交通设施建设" : "村镇建设用地",
+    index % 2 === 0 ? "工矿仓储用地" : "建设用地",
+    `20${String((index % 9) + 1).padStart(2, "0")}`,
+    slope,
+    terrainPart,
+    level > 8 ? "砂壤土" : level > 5 ? "黄棕壤" : "水稻土",
+    source,
+    facility,
+    useType,
+    index % 5 === 0 ? "是" : "否",
+    statusLabel(parcel.status),
+    parcel.status === "整改中" ? "不合格" : "合格",
+    `${level}等`,
+  ];
 }
 
 function AcceptanceProgressPanel({ parcels }: { parcels: SupplementaryParcel[] }) {
@@ -245,14 +275,27 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
   const [selectedParcel, setSelectedParcel] = useState<SupplementaryParcel | null>(null);
   const [selection, setSelection] = useState<SupplementarySelection>({ type: "region" });
   const [detailParcel, setDetailParcel] = useState<SupplementaryParcel | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
+  const [databasePage, setDatabasePage] = useState(1);
   const [layers, setLayers] = useState(defaultSupplementaryLayers);
   const parcels = useMemo(() => filterSupplementaryParcels(regionId, keyword, grade, status), [grade, keyword, regionId, status]);
+  const mapParcels = useMemo(() => filterSupplementaryParcels(regionId, "", grade, status), [grade, regionId, status]);
   const stats = useMemo(() => historicalStats(parcels), [parcels]);
+  const pageSize = 10;
+  const pageCount = Math.max(1, Math.ceil(parcels.length / pageSize));
+  const currentPage = Math.min(databasePage, pageCount);
+  const pagedParcels = parcels.slice((currentPage - 1) * pageSize, currentPage * pageSize);
 
   useEffect(() => {
     setSelectedParcel(null);
     setSelection({ type: "region" });
+    setHasSearched(false);
+    setDatabasePage(1);
   }, [regionId]);
+
+  useEffect(() => {
+    setDatabasePage(1);
+  }, [grade, keyword, status]);
 
   const selectParcel = (parcel: SupplementaryParcel) => {
     setSelectedParcel(parcel);
@@ -262,13 +305,15 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
   const handleSearch = () => {
     const text = searchText.trim();
     setKeyword(text);
+    setHasSearched(Boolean(text));
     const matched = filterSupplementaryParcels(regionId, text, grade, status)[0];
-    if (matched) selectParcel(matched);
+    if (matched) locateParcel(matched);
   };
 
   const locateParcel = (parcel: SupplementaryParcel) => {
     setRegionId("feixi");
     setView("map");
+    setHasSearched(true);
     window.setTimeout(() => selectParcel(parcel), 0);
   };
 
@@ -308,22 +353,25 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
               <div className="rounded-[2rem] border border-white/80 bg-white/84 p-5 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
                 <p className="text-sm font-black text-lime-700">GIS 空间查询</p>
                 <div className="mt-4 flex gap-2 rounded-2xl bg-slate-100 p-2">
-                  <input value={searchText} onChange={(event) => setSearchText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") handleSearch(); }} placeholder="项目名称/地块编号" className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none" />
+                  <input value={searchText} onChange={(event) => setSearchText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") handleSearch(); }} placeholder="输入项目名称/地块编号" className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none" />
                   <button onClick={handleSearch} className="grid h-10 w-10 place-items-center rounded-xl bg-[#123d2f] text-white"><Search className="h-4 w-4" /></button>
                 </div>
-                <div className="mt-4 space-y-2">
-                  {parcels.slice(0, 5).map((parcel) => (
-                    <button key={parcel.id} onClick={() => selectParcel(parcel)} className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${selectedParcel?.id === parcel.id ? "border-lime-500 bg-lime-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
-                      <div className="font-black text-[#123d2f]">{parcel.projectName}</div>
-                      <div className="mt-1 text-xs text-slate-500">{parcel.code} · {parcel.qualityGrade}</div>
-                    </button>
-                  ))}
-                </div>
+                {hasSearched && (
+                  <div className="mt-4 space-y-2">
+                    {parcels.slice(0, 8).map((parcel) => (
+                      <button key={parcel.id} onClick={() => locateParcel(parcel)} className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${selectedParcel?.id === parcel.id ? "border-lime-500 bg-lime-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
+                        <div className="font-black text-[#123d2f]">{parcel.code}</div>
+                        <div className="mt-1 text-xs text-slate-500">{parcel.projectName} · {parcel.qualityGrade}</div>
+                      </button>
+                    ))}
+                    {!parcels.length && <div className="rounded-2xl bg-white px-3 py-4 text-sm font-bold text-slate-400">未查询到匹配项目或地块</div>}
+                  </div>
+                )}
               </div>
               <AcceptanceProgressPanel parcels={parcels} />
             </aside>
 
-            <SupplementaryLandMap parcels={parcels} regionId={regionId} selectedParcelId={selectedParcel?.id} selectedProjectName={selection.type === "project" ? selection.project.id : null} layers={layers} onLayersChange={setLayers} onParcelSelect={selectParcel} onProjectSelect={(project) => { setSelectedParcel(null); setSelection({ type: "project", project }); }} onRegionDrill={setRegionId} onOpenParcelDetail={setDetailParcel} />
+            <SupplementaryLandMap parcels={mapParcels} regionId={regionId} selectedParcelId={selectedParcel?.id} selectedProjectName={selection.type === "project" ? selection.project.id : null} layers={layers} onLayersChange={setLayers} onParcelSelect={selectParcel} onProjectSelect={(project) => { setSelectedParcel(null); setSelection({ type: "project", project }); }} onRegionDrill={setRegionId} onOpenParcelDetail={setDetailParcel} />
 
             <aside className="space-y-5">
               <DynamicStatsPanel selection={selection} regionName={getSupervisionRegionName(regionId)} parcels={parcels} onOpenDetail={setDetailParcel} />
@@ -341,11 +389,30 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
               <select value={grade} onChange={(event) => setGrade(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{gradeOptions.map((item) => <option key={item}>{item}</option>)}</select>
               <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
             </div>
-            <div className="mt-6 overflow-hidden rounded-2xl border border-slate-100">
-              <table className="w-full text-left text-sm">
-                <thead className="bg-[#123d2f] text-white"><tr><th className="px-4 py-3">行政区</th><th className="px-4 py-3">项目名称</th><th className="px-4 py-3">地块编号</th><th className="px-4 py-3">面积</th><th className="px-4 py-3">耕地类型</th><th className="px-4 py-3">质量等级</th><th className="px-4 py-3">鉴定状态</th><th className="px-4 py-3">操作</th></tr></thead>
-                <tbody>{parcels.map((parcel) => <tr key={parcel.id} className="border-b border-slate-100 bg-white/80"><td className="px-4 py-3 font-bold text-[#123d2f]">{parcel.city}{parcel.county}</td><td className="px-4 py-3">{parcel.projectName}</td><td className="px-4 py-3">{parcel.code}</td><td className="px-4 py-3">{parcel.area} 亩</td><td className="px-4 py-3">{parcel.landType}</td><td className="px-4 py-3"><span className="rounded-full px-3 py-1 text-xs font-black text-white" style={{ backgroundColor: supplementaryGradeColor(parcel.qualityGrade) }}>{parcel.qualityGrade}</span></td><td className="px-4 py-3">{parcel.status}</td><td className="px-4 py-3"><div className="flex gap-2"><button onClick={() => setDetailParcel(parcel)} className="rounded-xl bg-lime-50 px-3 py-2 text-xs font-black text-lime-700">查看详情</button><button onClick={() => locateParcel(parcel)} className="rounded-xl bg-emerald-50 px-3 py-2 text-xs font-black text-emerald-700">定位图斑</button><button onClick={() => setDetailParcel(parcel)} className="rounded-xl bg-amber-50 px-3 py-2 text-xs font-black text-amber-700">检测结果</button></div></td></tr>)}</tbody>
+            <div className="mt-6 overflow-auto rounded-2xl border border-slate-200 bg-white">
+              <table className="min-w-[2280px] w-full border-collapse text-center text-sm">
+                <thead className="bg-slate-100 text-slate-800">
+                  <tr>{qualityDatabaseHeaders.map((header) => <th key={header} className="border border-slate-300 px-3 py-3 font-black">{header}</th>)}</tr>
+                </thead>
+                <tbody>
+                  {pagedParcels.map((parcel, index) => (
+                    <tr key={parcel.id} className="bg-white hover:bg-lime-50/50">
+                      {qualityDatabaseRow(parcel, (currentPage - 1) * pageSize + index).map((value, cellIndex) => <td key={`${parcel.id}-${cellIndex}`} className="whitespace-nowrap border border-slate-300 px-3 py-2 font-medium text-slate-700">{value}</td>)}
+                      <td className="whitespace-nowrap border border-slate-300 px-3 py-2"><button type="button" className="rounded-lg bg-lime-50 px-3 py-1.5 text-xs font-black text-lime-700">查看详情</button></td>
+                    </tr>
+                  ))}
+                </tbody>
               </table>
+            </div>
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm font-bold text-slate-600">
+              <span>共 {parcels.length} 条，每页 10 条，第 {currentPage} / {pageCount} 页</span>
+              <div className="flex items-center gap-2">
+                <button type="button" disabled={currentPage <= 1} onClick={() => setDatabasePage((page) => Math.max(1, page - 1))} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[#123d2f] disabled:cursor-not-allowed disabled:opacity-40">上一页</button>
+                {Array.from({ length: pageCount }, (_, index) => index + 1).slice(Math.max(0, currentPage - 3), Math.min(pageCount, currentPage + 2)).map((page) => (
+                  <button type="button" key={page} onClick={() => setDatabasePage(page)} className={`h-9 min-w-9 rounded-xl px-3 text-sm font-black ${page === currentPage ? "bg-[#123d2f] text-white" : "border border-slate-200 bg-white text-[#123d2f]"}`}>{page}</button>
+                ))}
+                <button type="button" disabled={currentPage >= pageCount} onClick={() => setDatabasePage((page) => Math.min(pageCount, page + 1))} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[#123d2f] disabled:cursor-not-allowed disabled:opacity-40">下一页</button>
+              </div>
             </div>
           </section>
         )}

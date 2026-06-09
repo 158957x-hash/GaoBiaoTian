@@ -16,6 +16,22 @@ type SupervisionMapProps = {
   initialView?: "screen";
 };
 
+type SupervisionParcelSearchResult = {
+  project: HighStandardProject;
+  index: number;
+  code: string;
+};
+
+function highStandardParcelCode(project: HighStandardProject, index: number) {
+  return `${project.code}-DK-${String(index + 1).padStart(3, "0")}`;
+}
+
+function matchHighStandardParcels(projects: HighStandardProject[], keyword: string) {
+  const normalized = keyword.trim();
+  if (!normalized) return [];
+  return projects.flatMap((project) => project.parcelPaths.map((_, index) => ({ project, index, code: highStandardParcelCode(project, index) }))).filter((item) => item.code.includes(normalized) || item.project.name.includes(normalized) || item.project.code.includes(normalized) || item.project.town.includes(normalized));
+}
+
 function StatCard({ label, value, unit, icon: Icon }: { label: string; value: string | number; unit: string; icon: typeof BarChart3 }) {
   return (
     <div className="rounded-3xl border border-white/70 bg-white/86 p-5 shadow-[0_16px_50px_rgba(18,61,47,0.08)] backdrop-blur-xl">
@@ -390,12 +406,15 @@ export default function SupervisionMap({ onBack }: SupervisionMapProps) {
   const [keyword, setKeyword] = useState("");
   const [searchText, setSearchText] = useState("");
   const [selectedProject, setSelectedProject] = useState<HighStandardProject | null>(null);
+  const [selectedParcel, setSelectedParcel] = useState<SupervisionParcelSearchResult | null>(null);
+  const [hasSearched, setHasSearched] = useState(false);
   const [detailProject, setDetailProject] = useState<HighStandardProject | null>(null);
   const [detailDevice, setDetailDevice] = useState<DevicePoint | null>(null);
   const [detailTab, setDetailTab] = useState<DetailTab>("项目基本信息");
   const [layers, setLayers] = useState(defaultSupervisionLayers);
   const regionProjects = useMemo(() => filterSupervisionProjects(regionId), [regionId]);
   const projects = useMemo(() => filterSupervisionProjects(regionId, keyword), [keyword, regionId]);
+  const parcelResults = useMemo(() => matchHighStandardParcels(regionProjects, keyword), [keyword, regionProjects]);
   const mapProjects = keyword ? regionProjects : projects;
   const stats = useMemo(() => buildSupervisionStats(projects), [projects]);
   const statusRows = useMemo(() => ["建设中", "已完工", "待验收", "整改中"].map((status) => ({ status, count: projects.filter((project) => project.status === status).length })), [projects]);
@@ -404,12 +423,39 @@ export default function SupervisionMap({ onBack }: SupervisionMapProps) {
     setKeyword("");
     setSearchText("");
     setSelectedProject(null);
+    setSelectedParcel(null);
+    setHasSearched(false);
   }, [regionId]);
+
+  const selectProject = (project: HighStandardProject) => {
+    setSelectedProject(project);
+    setSelectedParcel(null);
+  };
+
+  const selectParcel = (item: SupervisionParcelSearchResult) => {
+    if (regionId !== "feixi") {
+      setRegionId("feixi");
+      window.setTimeout(() => {
+        setSelectedProject(item.project);
+        setSelectedParcel(item);
+      }, 0);
+      return;
+    }
+    setSelectedProject(item.project);
+    setSelectedParcel(item);
+  };
 
   const handleSearch = () => {
     const text = searchText.trim();
     setKeyword(text);
+    setHasSearched(Boolean(text));
+    const matchedParcel = matchHighStandardParcels(regionProjects, text)[0];
+    if (matchedParcel) {
+      selectParcel(matchedParcel);
+      return;
+    }
     const matched = filterSupervisionProjects(regionId, text)[0];
+    setSelectedParcel(null);
     setSelectedProject(matched ?? null);
   };
 
@@ -444,17 +490,26 @@ export default function SupervisionMap({ onBack }: SupervisionMapProps) {
             <div className="rounded-[2rem] border border-white/80 bg-white/84 p-5 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
               <p className="text-sm font-black text-emerald-700">GIS 空间查询</p>
               <div className="mt-4 flex gap-2 rounded-2xl bg-slate-100 p-2">
-                <input value={searchText} onChange={(event) => setSearchText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") handleSearch(); }} placeholder="输入项目名称/编号" className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none" />
+                <input value={searchText} onChange={(event) => setSearchText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") handleSearch(); }} placeholder="输入项目名称/项目编号/地块编号" className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none" />
                 <button onClick={handleSearch} className="grid h-10 w-10 place-items-center rounded-xl bg-[#123d2f] text-white"><Search className="h-4 w-4" /></button>
               </div>
-              <div className="mt-4 space-y-2">
-                {projects.slice(0, 5).map((project) => (
-                  <button key={project.id} onClick={() => setSelectedProject(project)} className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${selectedProject?.id === project.id ? "border-emerald-500 bg-emerald-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
-                    <div className="font-black text-[#123d2f]">{project.name}</div>
-                    <div className="mt-1 text-xs text-slate-500">{project.code} · {project.county}{project.town} · {project.progress}%</div>
-                  </button>
-                ))}
-              </div>
+              {hasSearched && (
+                <div className="mt-4 space-y-2">
+                  {parcelResults.slice(0, 8).map((item) => (
+                    <button key={`${item.project.id}-${item.index}`} onClick={() => selectParcel(item)} className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${selectedParcel?.project.id === item.project.id && selectedParcel.index === item.index ? "border-emerald-500 bg-emerald-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
+                      <div className="font-black text-[#123d2f]">{item.code}</div>
+                      <div className="mt-1 text-xs text-slate-500">{item.project.name} · {item.project.town}</div>
+                    </button>
+                  ))}
+                  {!parcelResults.length && projects.slice(0, 5).map((project) => (
+                    <button key={project.id} onClick={() => selectProject(project)} className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${selectedProject?.id === project.id && !selectedParcel ? "border-emerald-500 bg-emerald-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
+                      <div className="font-black text-[#123d2f]">{project.name}</div>
+                      <div className="mt-1 text-xs text-slate-500">{project.code} · {project.county}{project.town} · {project.progress}%</div>
+                    </button>
+                  ))}
+                  {!parcelResults.length && !projects.length && <div className="rounded-2xl bg-white px-3 py-4 text-sm font-bold text-slate-400">未查询到匹配项目或地块</div>}
+                </div>
+              )}
             </div>
             <div className="rounded-[2rem] border border-white/80 bg-white/84 p-5 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
               <p className="text-sm font-black text-emerald-700">资金与问题</p>
@@ -468,7 +523,7 @@ export default function SupervisionMap({ onBack }: SupervisionMapProps) {
             </div>
           </aside>
 
-          <SupervisionGisMap projects={mapProjects} regionId={regionId} selectedProjectId={selectedProject?.id} layers={layers} onLayersChange={setLayers} onProjectSelect={setSelectedProject} onRegionDrill={setRegionId} onOpenProjectDetail={openProjectDetail} onOpenDeviceDetail={setDetailDevice} />
+          <SupervisionGisMap projects={mapProjects} regionId={regionId} selectedProjectId={selectedProject?.id} selectedParcel={selectedParcel ? { projectId: selectedParcel.project.id, index: selectedParcel.index } : null} layers={layers} onLayersChange={setLayers} onProjectSelect={selectProject} onRegionDrill={setRegionId} onOpenProjectDetail={openProjectDetail} onOpenDeviceDetail={setDetailDevice} />
 
           <aside className="space-y-5">
             {selectedProject ? <ProjectPanel project={selectedProject} onOpenDetail={openProjectDetail} /> : <RegionProjectSummaryPanel regionName={getSupervisionRegionName(regionId)} stats={stats} statusRows={statusRows} />}

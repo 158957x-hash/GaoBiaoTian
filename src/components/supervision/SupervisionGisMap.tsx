@@ -16,8 +16,17 @@ import {
   type SupervisionLayers,
 } from "@/data/supervisionMap";
 
+type SelectedProjectParcel = {
+  project: HighStandardProject;
+  index: number;
+  path: Array<[number, number]>;
+  level: number;
+  area: number;
+};
+
 type SelectedMapItem =
   | { type: "project"; item: HighStandardProject }
+  | { type: "parcel"; item: SelectedProjectParcel }
   | { type: "facility"; item: FacilityPoint }
   | { type: "device"; item: DevicePoint };
 
@@ -25,6 +34,7 @@ type SupervisionGisMapProps = {
   projects: HighStandardProject[];
   regionId: string;
   selectedProjectId?: string;
+  selectedParcel?: { projectId: string; index: number } | null;
   layers: SupervisionLayers;
   onLayersChange: (layers: SupervisionLayers) => void;
   onProjectSelect: (project: HighStandardProject) => void;
@@ -91,6 +101,16 @@ function RecenterMap({ regionId }: { regionId: string }) {
   return null;
 }
 
+function FocusParcel({ path }: { path?: Array<[number, number]> }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!path?.length) return;
+    const bounds = L.latLngBounds(path.map(([lat, lng]) => L.latLng(lat, lng)));
+    map.fitBounds(bounds.pad(2.6), { animate: true, duration: 0.55, maxZoom: 16 });
+  }, [map, path]);
+  return null;
+}
+
 function getPathCenter(path: LatLngExpression[]) {
   const points = path as Array<[number, number]>;
   const total = points.reduce((sum, point) => [sum[0] + point[0], sum[1] + point[1]], [0, 0]);
@@ -101,6 +121,14 @@ function parcelLevel(project: HighStandardProject, index: number) {
   const match = project.code.match(/(\d+)$/);
   const seed = match ? Number(match[1]) : project.id.length;
   return ((seed + index * 7) % 10) + 1;
+}
+
+function parcelArea(project: HighStandardProject, index: number) {
+  return Number((project.area / Math.max(project.parcelPaths.length, 1) * (0.84 + (index % 5) * 0.08)).toFixed(1));
+}
+
+function parcelCode(project: HighStandardProject, index: number) {
+  return `${project.code}-DK-${String(index + 1).padStart(3, "0")}`;
 }
 
 function getRegionChain(regionId: string) {
@@ -142,8 +170,11 @@ function RegionCascade({ regionId, onRegionChange }: { regionId: string; onRegio
   );
 }
 
-export default function SupervisionGisMap({ projects, regionId, selectedProjectId, layers, onLayersChange, onProjectSelect, onRegionDrill, onOpenDeviceDetail }: SupervisionGisMapProps) {
+export default function SupervisionGisMap({ projects, regionId, selectedProjectId, selectedParcel, layers, onLayersChange, onProjectSelect, onRegionDrill, onOpenDeviceDetail }: SupervisionGisMapProps) {
   const [selectedItem, setSelectedItem] = useState<SelectedMapItem | null>(null);
+  const externalSelectedProject = selectedParcel ? projects.find((project) => project.id === selectedParcel.projectId) : undefined;
+  const externalSelectedPath = externalSelectedProject?.parcelPaths[selectedParcel?.index ?? -1];
+  const activeParcelKey = selectedItem?.type === "parcel" ? `${selectedItem.item.project.id}-${selectedItem.item.index}` : selectedParcel ? `${selectedParcel.projectId}-${selectedParcel.index}` : "";
   const projectIds = useMemo(() => projects.map((project) => project.id), [projects]);
   const visibleFacilities = useMemo(() => facilityPoints.filter((item) => projectIds.includes(item.projectId)), [projectIds]);
   const visibleDevices = useMemo(() => devicePoints.filter((item) => projectIds.includes(item.projectId)), [projectIds]);
@@ -151,11 +182,26 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
   const showProjectLayers = regionId === "feixi";
   const currentBoundaries = realSupervisionBoundaries[regionId as keyof typeof realSupervisionBoundaries] ?? realSupervisionBoundaries.anhui;
 
+  useEffect(() => {
+    if (!selectedParcel || !externalSelectedProject || !externalSelectedPath) return;
+    setSelectedItem({
+      type: "parcel",
+      item: {
+        project: externalSelectedProject,
+        index: selectedParcel.index,
+        path: externalSelectedPath,
+        level: parcelLevel(externalSelectedProject, selectedParcel.index),
+        area: parcelArea(externalSelectedProject, selectedParcel.index),
+      },
+    });
+  }, [externalSelectedPath, externalSelectedProject, selectedParcel]);
+
   return (
     <div className="relative h-[720px] overflow-hidden rounded-[2.2rem] border border-sky-200/18 bg-[#001b31] shadow-[0_28px_90px_rgba(0,24,45,0.34)]">
       <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#001b31]" scrollWheelZoom>
         <OfflineBasemap />
         <RecenterMap regionId={regionId} />
+        <FocusParcel path={externalSelectedPath} />
 
         {layers.boundary && currentBoundaries.map((boundary) => (
           <Fragment key={boundary.id}>
@@ -176,23 +222,33 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
           </Fragment>
         ))}
         {layers.projects && showProjectLayers && projects.map((project) => {
-          const selected = project.id === selectedProjectId;
+          const projectSelected = project.id === selectedProjectId && selectedItem?.type !== "parcel";
           return (
             <Fragment key={project.id}>
-              {project.parcelPaths.map((path, index) => (
-                <Polygon
-                  key={`${project.id}-parcel-${index}`}
-                  positions={path}
-                  pathOptions={{
-                    color: selected ? "#facc15" : "rgba(219,234,254,.78)",
-                    weight: selected ? 2.8 : 1.1,
-                    fillColor: gradePalette[parcelLevel(project, index) - 1],
-                    fillOpacity: selected ? 0.84 : 0.66,
-                  }}
-                  eventHandlers={{ click: () => { onProjectSelect(project); setSelectedItem({ type: "project", item: project }); } }}
-                />
-              ))}
-              <Polygon bubblingMouseEvents={false} positions={project.path} pathOptions={{ color: selected ? "#facc15" : "#38bdf8", weight: selected ? 3.4 : 2.4, dashArray: "9 7", lineCap: "round", lineJoin: "round", fill: false }} eventHandlers={{ click: () => { onProjectSelect(project); setSelectedItem({ type: "project", item: project }); } }} />
+              {project.parcelPaths.map((path, index) => {
+                const level = parcelLevel(project, index);
+                const parcelKey = `${project.id}-${index}`;
+                const parcelSelected = activeParcelKey === parcelKey;
+                return (
+                  <Polygon
+                    key={`${project.id}-parcel-${index}`}
+                    positions={path}
+                    pathOptions={{
+                      color: parcelSelected ? "#facc15" : projectSelected ? "rgba(250,204,21,.78)" : "rgba(219,234,254,.78)",
+                      weight: parcelSelected ? 3.2 : projectSelected ? 2 : 1.1,
+                      fillColor: gradePalette[level - 1],
+                      fillOpacity: parcelSelected ? 0.9 : projectSelected ? 0.72 : 0.66,
+                    }}
+                    eventHandlers={{
+                      click: () => {
+                        onProjectSelect(project);
+                        setSelectedItem({ type: "parcel", item: { project, index, path, level, area: parcelArea(project, index) } });
+                      },
+                    }}
+                  />
+                );
+              })}
+              <Polygon bubblingMouseEvents={false} positions={project.path} pathOptions={{ color: projectSelected ? "#facc15" : "#38bdf8", weight: projectSelected ? 3.4 : 2.4, dashArray: "9 7", lineCap: "round", lineJoin: "round", fill: false }} eventHandlers={{ click: () => { onProjectSelect(project); setSelectedItem({ type: "project", item: project }); } }} />
             </Fragment>
           );
         })}
@@ -229,12 +285,13 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
         <div className="absolute right-5 top-20 z-[500] w-[340px] rounded-3xl border border-white/80 bg-white p-5 text-slate-800 shadow-2xl shadow-emerald-950/25">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black text-cyan-700">{selectedItem.type === "project" ? "项目区属性卡" : selectedItem.type === "facility" ? "工程设施点位" : "物联网设备点位"}</p>
-              <h3 className="mt-1 text-lg font-black text-[#123d2f]">{selectedItem.item.name}</h3>
+              <p className="text-xs font-black text-cyan-700">{selectedItem.type === "project" ? "项目区属性卡" : selectedItem.type === "parcel" ? "田块属性卡" : selectedItem.type === "facility" ? "工程设施点位" : "物联网设备点位"}</p>
+              <h3 className="mt-1 text-lg font-black text-[#123d2f]">{selectedItem.type === "parcel" ? parcelCode(selectedItem.item.project, selectedItem.item.index) : selectedItem.item.name}</h3>
             </div>
             <button onClick={() => setSelectedItem(null)} className="text-xl text-slate-400 hover:text-slate-700">×</button>
           </div>
           {selectedItem.type === "project" && <div className="mt-4 text-sm leading-7">项目编号：{selectedItem.item.code}<br />建设面积：{selectedItem.item.area.toLocaleString()} 亩<br />投资金额：{selectedItem.item.investment.toLocaleString()} 万元<br />当前进度：{selectedItem.item.progress}%</div>}
+          {selectedItem.type === "parcel" && <div className="mt-4 text-sm leading-7">所属项目：{selectedItem.item.project.name}<br />地块编号：{parcelCode(selectedItem.item.project, selectedItem.item.index)}<br />地块面积：{selectedItem.item.area.toLocaleString()} 亩<br />质量等级：{selectedItem.item.level} 等<br />建设状态：{selectedItem.item.project.status}</div>}
           {selectedItem.type === "facility" && <div className="mt-4 text-sm leading-7">设施类型：{selectedItem.item.type}<br />运行状态：{selectedItem.item.status}<br />工程点位已接入施工监管台账。</div>}
           {selectedItem.type === "device" && (
             <div className="mt-4 text-sm leading-7">

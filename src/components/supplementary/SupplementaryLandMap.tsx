@@ -64,6 +64,16 @@ function RecenterMap({ regionId }: { regionId: string }) {
   return null;
 }
 
+function FocusParcel({ parcel }: { parcel?: SupplementaryParcel | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!parcel?.path.length) return;
+    const bounds = L.latLngBounds(parcel.path.map(([lat, lng]) => L.latLng(lat, lng)));
+    map.fitBounds(bounds.pad(2.6), { animate: true, duration: 0.55, maxZoom: 16 });
+  }, [map, parcel]);
+  return null;
+}
+
 function createRegionLabelIcon(label: string, highlighted: boolean) {
   return L.divIcon({
     className: "",
@@ -180,8 +190,9 @@ function buildProjectBoundaries(parcels: SupplementaryParcel[]) {
   return groups.map((items, index) => buildProjectBoundary(`supplementary-project-${index + 1}`, items, index));
 }
 
-export default function SupplementaryLandMap({ parcels, regionId, selectedProjectName, layers, onLayersChange, onParcelSelect, onProjectSelect, onRegionDrill }: SupplementaryLandMapProps) {
+export default function SupplementaryLandMap({ parcels, regionId, selectedParcelId, selectedProjectName, layers, onLayersChange, onParcelSelect, onProjectSelect, onRegionDrill }: SupplementaryLandMapProps) {
   const [selectedUnit, setSelectedUnit] = useState<SelectedUnit | null>(null);
+  const selectedParcel = selectedParcelId ? parcels.find((parcel) => parcel.id === selectedParcelId) : null;
   const mapBounds = regionView[regionId]?.bounds ?? regionView.anhui.bounds;
   const currentBoundaries = realSupervisionBoundaries[regionId as keyof typeof realSupervisionBoundaries] ?? realSupervisionBoundaries.anhui;
   const showParcelLayers = regionId === "feixi";
@@ -192,6 +203,7 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedProjec
       <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#001b31]" scrollWheelZoom>
         <OfflineBasemap />
         <RecenterMap regionId={regionId} />
+        <FocusParcel parcel={selectedParcel} />
         {layers.boundary && currentBoundaries.map((boundary) => (
           <Fragment key={boundary.id}>
             {boundary.paths.map((path, pathIndex) => (
@@ -202,7 +214,7 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedProjec
         {showParcelLayers && layers.parcels && parcels.map((parcel) => (
           <Fragment key={parcel.id}>
             {parcel.unitPaths.map((path, index) => {
-              const isSelected = selectedUnit?.parcelId === parcel.id && selectedUnit.unitIndex === index;
+              const isSelected = (selectedParcelId === parcel.id && index === 0) || (selectedUnit?.parcelId === parcel.id && selectedUnit.unitIndex === index);
               return <Polygon key={`${parcel.id}-${index}`} positions={path} pathOptions={{ color: isSelected ? "#facc15" : "rgba(219,234,254,.75)", weight: isSelected ? 3 : 1, fillColor: parcelFillColor(parcel), fillOpacity: isSelected ? 0.82 : 0.62 }} eventHandlers={{ click: () => { setSelectedUnit({ parcelId: parcel.id, unitIndex: index }); onParcelSelect(parcel); } }} />;
             })}
           </Fragment>
