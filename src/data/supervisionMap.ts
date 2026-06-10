@@ -3,7 +3,7 @@ import { supplementaryParcels } from "@/data/supplementaryLand";
 export type RegionLevel = "province" | "city" | "county";
 export type ProjectStatus = "建设中" | "已完工" | "待验收" | "整改中";
 export type FacilityType = "泵站" | "机耕桥" | "田间道路" | "渠系工程";
-export type DeviceType = "摄像头" | "墒情设备" | "虫情设备";
+export type DeviceType = "摄像头" | "墒情设备" | "虫情设备" | "气象站";
 
 export type SupervisionRegion = {
   id: string;
@@ -67,6 +67,7 @@ export type SupervisionLayers = {
   cameras: boolean;
   moisture: boolean;
   insects: boolean;
+  weather: boolean;
   boundary: boolean;
 };
 
@@ -238,6 +239,7 @@ export const devicePoints: DevicePoint[] = highStandardProjects.flatMap((project
   { id: `device-${index}-1`, projectId: project.id, type: "摄像头", name: `${project.town}现场视频点`, status: index % 5 === 0 ? "离线" : "在线", x: project.center.x - 48, y: project.center.y + 34, latLng: pointInProjectParcel(project, 10), value: "施工现场画面正常", time: "2026-06-05 09:32" },
   { id: `device-${index}-2`, projectId: project.id, type: "墒情设备", name: `${project.town}墒情监测站`, status: index % 4 === 0 ? "预警" : "在线", x: project.center.x + 52, y: project.center.y - 34, latLng: pointInProjectParcel(project, 13), value: `土壤含水率 ${18 + index * 2}% / 温度 ${22 + index}℃`, time: "2026-06-05 09:30" },
   { id: `device-${index}-3`, projectId: project.id, type: "虫情设备", name: `${project.town}虫情测报灯`, status: index % 3 === 0 ? "预警" : "在线", x: project.center.x + 18, y: project.center.y - 58, latLng: pointInProjectParcel(project, 16), value: `诱捕数量 ${36 + index * 11} 头 / 风险${index % 3 === 0 ? "偏高" : "正常"}`, time: "2026-06-05 08:50" },
+  { id: `device-${index}-4`, projectId: project.id, type: "气象站", name: `${project.town}气象监测站`, status: index % 6 === 0 ? "离线" : "在线", x: project.center.x - 32, y: project.center.y - 48, latLng: pointInProjectParcel(project, 19), value: `温度 ${28 + index}℃ / 湿度 ${65 - index}%`, time: "2026-06-05 09:35" },
 ]);
 
 export function getSupervisionRegionName(regionId: string) {
@@ -306,5 +308,6 @@ export const defaultSupervisionLayers: SupervisionLayers = {
   cameras: true,
   moisture: true,
   insects: true,
+  weather: true,
   boundary: true,
 };

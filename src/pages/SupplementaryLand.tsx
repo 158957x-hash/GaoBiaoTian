@@ -54,12 +54,12 @@ function historicalStats(parcels: SupplementaryParcel[]) {
 
 function StatCard({ label, value, unit, icon: Icon }: { label: string; value: string | number; unit: string; icon: typeof BarChart3 }) {
   return (
-    <div className="rounded-3xl border border-white/70 bg-white/86 p-5 shadow-[0_16px_50px_rgba(18,61,47,0.08)] backdrop-blur-xl">
+    <div className="rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
       <div className="flex items-center justify-between">
-        <p className="text-sm font-bold text-slate-500">{label}</p>
-        <div className="grid h-10 w-10 place-items-center rounded-2xl bg-[#123d2f] text-lime-100"><Icon className="h-5 w-5" /></div>
+        <p className="text-[13px] font-semibold text-cyan-100/60">{label}</p>
+        <div className="grid h-9 w-9 place-items-center rounded-lg bg-[#67D66E]/20 text-[#67D66E]"><Icon className="h-5 w-5" /></div>
       </div>
-      <div className="mt-4 flex items-end gap-1"><span className="text-3xl font-black text-[#123d2f]">{value}</span><span className="pb-1 text-xs font-bold text-slate-400">{unit}</span></div>
+      <div className="mt-3 flex items-end gap-1"><span className="text-[28px] font-bold text-[#67D66E]">{value}</span><span className="pb-1 text-xs font-semibold text-cyan-100/50">{unit}</span></div>
     </div>
   );
 }
@@ -133,22 +133,22 @@ function qualityDatabaseRow(parcel: SupplementaryParcel, index: number) {
 function AcceptanceProgressPanel({ parcels }: { parcels: SupplementaryParcel[] }) {
   const total = Math.max(parcels.length, 1);
   return (
-    <div className="rounded-[2rem] border border-white/80 bg-white/84 p-5 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
+    <div className="rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
       <div className="flex items-center justify-between">
         <div>
-          <p className="text-sm font-black text-lime-700">地区验收进度</p>
-          <h3 className="mt-1 text-xl font-black text-[#123d2f]">流程状态分布</h3>
+          <p className="text-[13px] font-semibold text-[#67D66E]">地区验收进度</p>
+          <h3 className="mt-1 text-lg font-bold text-cyan-50">流程状态分布</h3>
         </div>
-        <span className="rounded-full bg-lime-50 px-3 py-1 text-xs font-black text-lime-700">{parcels.length} 块</span>
+        <span className="rounded-full bg-[#67D66E]/20 px-3 py-1 text-xs font-semibold text-[#67D66E]">{parcels.length} 块</span>
       </div>
-      <div className="mt-5 space-y-3">
+      <div className="mt-4 space-y-3">
         {acceptanceStatuses.map((status) => {
           const count = parcels.filter((parcel) => parcel.status === status).length;
           const percent = (count / total) * 100;
           return (
             <div key={status}>
-              <div className="mb-1 flex justify-between text-xs font-black text-slate-500"><span>{statusLabel(status)}</span><span>{count} 块 · {percent.toFixed(0)}%</span></div>
-              <div className="h-2.5 overflow-hidden rounded-full bg-slate-100"><div className={`h-full rounded-full ${statusTone(status)}`} style={{ width: `${percent}%` }} /></div>
+              <div className="mb-1 flex justify-between text-xs font-semibold text-cyan-100/60"><span>{statusLabel(status)}</span><span>{count} 块 · {percent.toFixed(0)}%</span></div>
+              <div className="h-2 overflow-hidden rounded-full bg-white/[0.08]"><div className={`h-full rounded-full ${statusTone(status)}`} style={{ width: `${percent}%` }} /></div>
             </div>
           );
         })}
@@ -163,8 +163,8 @@ function ConformityPie({ parcels }: { parcels: SupplementaryParcel[] }) {
   const percent = (passed / total) * 100;
   return (
     <div className="flex items-center justify-center py-4">
-      <div className="grid h-32 w-32 place-items-center rounded-full" style={{ background: `conic-gradient(#16a34a 0 ${percent}%, #f97316 ${percent}% 100%)` }}>
-        <div className="grid h-20 w-20 place-items-center rounded-full bg-white text-center text-xs font-black text-[#123d2f]">通过<br />{percent.toFixed(0)}%</div>
+      <div className="grid h-32 w-32 place-items-center rounded-full" style={{ background: `conic-gradient(#67D66E 0 ${percent}%, #FF9F3F ${percent}% 100%)` }}>
+        <div className="grid h-20 w-20 place-items-center rounded-full bg-[#0A2530] text-center text-xs font-semibold text-cyan-50">通过<br />{percent.toFixed(0)}%</div>
       </div>
     </div>
   );
@@ -175,14 +175,14 @@ function QualityLevelBars({ parcels }: { parcels: SupplementaryParcel[] }) {
   const areaRows = levels.map((level) => ({ level, area: syntheticQualityArea(parcels, level) }));
   const maxArea = Math.max(...areaRows.map((row) => row.area), 1);
   return (
-    <div className="mt-4 rounded-2xl border border-slate-100 bg-slate-50 px-4 pb-4 pt-5">
+    <div className="mt-4 rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 pb-4 pt-5">
       <div className="flex h-44 items-end gap-2">
         {areaRows.map(({ level, area }) => {
           const height = Math.max((area / maxArea) * 156, 16);
           return (
             <div key={level} className="flex h-full flex-1 flex-col justify-end gap-2">
               <div className="mx-auto w-full rounded-t-lg shadow-sm" style={{ height: `${height}px`, backgroundColor: qualityLevelPalette[level - 1] }} />
-              <span className="text-center text-[10px] font-black text-slate-500">{level}等</span>
+              <span className="text-center text-[10px] font-semibold text-cyan-100/50">{level}等</span>
             </div>
           );
         })}
@@ -194,17 +194,17 @@ function QualityLevelBars({ parcels }: { parcels: SupplementaryParcel[] }) {
 function RegionStatsPanel({ regionName, parcels }: { regionName: string; parcels: SupplementaryParcel[] }) {
   const stats = buildSupplementaryStats(parcels);
   return (
-    <div className="rounded-[2rem] border border-white/80 bg-white/88 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
-      <h3 className="text-2xl font-black text-[#123d2f]">区域验收统计</h3>
-      <div className="mt-5 space-y-3 text-lg leading-8 text-slate-700">
+    <div className="rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
+      <h3 className="text-xl font-bold text-cyan-50">区域验收统计</h3>
+      <div className="mt-4 space-y-2 text-base leading-7 text-cyan-100/70">
         <p>行政区划：{regionName}</p>
         <p>补充耕地面积：{stats.area.toLocaleString()}亩</p>
         <p>图斑数量：{stats.count}</p>
         <p>项目数量：{projectNameCounts(parcels)}</p>
       </div>
-      <h4 className="mt-8 text-lg font-black text-slate-800">农业符合性评价通过情况</h4>
+      <h4 className="mt-6 text-base font-semibold text-cyan-100/80">农业符合性评价通过情况</h4>
       <ConformityPie parcels={parcels} />
-      <h4 className="mt-6 text-lg font-black text-slate-800">耕地质量等级分布</h4>
+      <h4 className="mt-5 text-base font-semibold text-cyan-100/80">耕地质量等级分布</h4>
       <QualityLevelBars parcels={parcels} />
     </div>
   );
@@ -214,22 +214,22 @@ function ProjectStatsPanel({ project }: { project: SupplementaryProjectSummary }
   const stats = buildSupplementaryStats(project.parcels);
   const first = project.parcels[0];
   return (
-    <div className="rounded-[2rem] border border-white/80 bg-white/88 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
+    <div className="rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h3 className="text-2xl font-black text-[#123d2f]">项目验收统计</h3>
-          <div className="mt-5 space-y-3 text-lg leading-8 text-slate-700">
+          <h3 className="text-xl font-bold text-cyan-50">项目验收统计</h3>
+          <div className="mt-4 space-y-2 text-base leading-7 text-cyan-100/70">
             <p>项目名称：{project.name}</p>
             <p>行政区划：{first ? `${first.city}${first.county}` : "--"}</p>
             <p>补充耕地面积：{stats.area.toLocaleString()}亩</p>
             <p>图斑数量：{stats.count}</p>
           </div>
         </div>
-        <button className="shrink-0 rounded-xl bg-sky-500 px-4 py-3 text-sm font-black text-white">查看鉴定意见报告</button>
+        <button className="shrink-0 rounded-lg bg-[#35A7FF] px-4 py-2.5 text-sm font-semibold text-white">查看鉴定意见报告</button>
       </div>
-      <h4 className="mt-8 text-lg font-black text-slate-800">农业符合性评价通过情况</h4>
+      <h4 className="mt-6 text-base font-semibold text-cyan-100/80">农业符合性评价通过情况</h4>
       <ConformityPie parcels={project.parcels} />
-      <h4 className="mt-6 text-lg font-black text-slate-800">耕地质量等级分布</h4>
+      <h4 className="mt-5 text-base font-semibold text-cyan-100/80">耕地质量等级分布</h4>
       <QualityLevelBars parcels={project.parcels} />
     </div>
   );
@@ -237,21 +237,21 @@ function ProjectStatsPanel({ project }: { project: SupplementaryProjectSummary }
 
 function ParcelStatsPanel({ parcel, onOpenDetail }: { parcel: SupplementaryParcel; onOpenDetail: (parcel: SupplementaryParcel) => void }) {
   return (
-    <div className="rounded-[2rem] border border-white/80 bg-white/88 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
-      <h3 className="text-2xl font-black text-[#123d2f]">地块验收统计</h3>
-      <div className="mt-5 space-y-3 text-lg leading-8 text-slate-700">
+    <div className="rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
+      <h3 className="text-xl font-bold text-cyan-50">地块验收统计</h3>
+      <div className="mt-4 space-y-2 text-base leading-7 text-cyan-100/70">
         <p>地块编号：{parcel.code}</p>
         <p>所属行政区划：{parcel.city}{parcel.county}</p>
         <p>面积：{parcel.area.toLocaleString()}亩</p>
         <p>所属项目：{parcel.projectName}</p>
       </div>
-      <div className="mt-6 space-y-5 text-lg font-black text-slate-800">
-        <div className="flex justify-between"><span>鉴定阶段：{parcel.status === "待鉴定" ? "县级初鉴" : parcel.status}</span><button onClick={() => onOpenDetail(parcel)} className="text-base text-sky-500">查看地块详情&gt;&gt;</button></div>
+      <div className="mt-5 space-y-4 text-base font-semibold text-cyan-100/80">
+        <div className="flex justify-between"><span>鉴定阶段：{parcel.status === "待鉴定" ? "县级初鉴" : parcel.status}</span><button onClick={() => onOpenDetail(parcel)} className="text-sm text-[#35A7FF]">查看地块详情&gt;&gt;</button></div>
         <p>鉴定状态：{parcel.status}</p>
-        <div className="flex justify-between"><span>农业符合性评价：{parcel.status === "整改中" ? "待整改" : "达标"}</span><button className="text-base text-sky-500">展开详情&gt;&gt;</button></div>
-        <div className="rounded-xl border border-slate-300 p-6 text-center text-base font-medium text-slate-600">展示所有农业符合性评价的指标项及参数</div>
-        <div className="flex justify-between"><span>耕地质量等级评价：{parcelQualityLevel(parcel)}.{parcel.sampleCount}</span><button className="text-base text-sky-500">展开详情&gt;&gt;</button></div>
-        <div className="rounded-xl border border-slate-300 p-6 text-center text-base font-medium text-slate-600">展示所有耕地质量等级评价的指标项及参数</div>
+        <div className="flex justify-between"><span>农业符合性评价：{parcel.status === "整改中" ? "待整改" : "达标"}</span><button className="text-sm text-[#35A7FF]">展开详情&gt;&gt;</button></div>
+        <div className="rounded-lg border border-white/[0.08] p-4 text-center text-sm text-cyan-100/60">展示所有农业符合性评价的指标项及参数</div>
+        <div className="flex justify-between"><span>耕地质量等级评价：{parcelQualityLevel(parcel)}.{parcel.sampleCount}</span><button className="text-sm text-[#35A7FF]">展开详情&gt;&gt;</button></div>
+        <div className="rounded-lg border border-white/[0.08] p-4 text-center text-sm text-cyan-100/60">展示所有耕地质量等级评价的指标项及参数</div>
       </div>
     </div>
   );
@@ -316,18 +316,19 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
   };
 
   return (
-    <main className="min-h-screen bg-[#eef3e7] text-slate-900">
-      <div className="fixed inset-0 bg-[radial-gradient(circle_at_12%_8%,rgba(132,204,22,0.2),transparent_25%),radial-gradient(circle_at_84%_10%,rgba(245,158,11,0.16),transparent_28%),linear-gradient(180deg,#f6f8ed_0%,#e8f0df_58%,#f5f0dd_100%)]" />
-      <section className="relative mx-auto max-w-[1760px] px-6 py-6">
-        <header className="flex flex-wrap items-center justify-between gap-4 rounded-[2rem] border border-white/80 bg-white/80 px-6 py-5 shadow-[0_18px_70px_rgba(18,61,47,0.08)] backdrop-blur-xl">
+    <main className="min-h-screen overflow-hidden bg-[#061A24] text-cyan-50">
+      <div className="fixed inset-0 bg-[radial-gradient(circle_at_15%_10%,rgba(39,215,232,0.08),transparent_26%),radial-gradient(circle_at_82%_8%,rgba(103,214,110,0.06),transparent_28%),linear-gradient(135deg,#061A24_0%,#0A2530_48%,#061A24_100%)]" />
+      <div className="fixed inset-0 opacity-[0.12] [background-image:linear-gradient(rgba(39,215,232,0.15)_1px,transparent_1px),linear-gradient(90deg,rgba(39,215,232,0.12)_1px,transparent_1px)] [background-size:44px_44px]" />
+      <section className="relative mx-auto max-w-[1760px] p-5">
+        <header className="flex flex-wrap items-center justify-between gap-4 rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] px-5 py-4 shadow-lg">
           <div className="flex items-center gap-4">
-            <button onClick={onBack} className="grid h-12 w-12 place-items-center rounded-2xl bg-[#123d2f] text-white"><ArrowLeft className="h-5 w-5" /></button>
-            <div><p className="text-sm font-black tracking-[0.28em] text-lime-700">SUPPLEMENTARY FARMLAND GIS</p><h1 className="mt-1 text-3xl font-black text-[#123d2f]">补充耕地验收管理系统 · 质量一张图</h1></div>
+            <button onClick={onBack} className="grid h-11 w-11 place-items-center rounded-lg bg-[#67D66E]/20 text-[#67D66E]"><ArrowLeft className="h-5 w-5" /></button>
+            <div><p className="text-[12px] font-semibold tracking-[0.2em] text-[#67D66E]">SUPPLEMENTARY FARMLAND GIS</p><h1 className="mt-1 text-[32px] font-bold text-cyan-50">补充耕地验收管理系统 · 质量一张图</h1></div>
           </div>
-          <div className="flex items-center gap-3 rounded-2xl bg-lime-50 px-4 py-3 text-sm font-bold text-[#123d2f]"><LocateFixed className="h-5 w-5 text-lime-700" />当前范围：{getSupervisionRegionName(regionId)}</div>
+          <div className="flex items-center gap-3 rounded-lg bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-cyan-100/70"><LocateFixed className="h-5 w-5 text-[#67D66E]" />当前范围：{getSupervisionRegionName(regionId)}</div>
         </header>
 
-        <section className="mt-5 grid gap-4 md:grid-cols-2 xl:grid-cols-6">
+        <section className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
           <StatCard label="项目数 / 地块数" value={`${stats.projectCount} / ${stats.parcelCount}`} unit="个 / 块" icon={Sprout} />
           <StatCard label="补充耕地面积" value={stats.supplementaryArea.toLocaleString()} unit="亩" icon={BarChart3} />
           <StatCard label="验收完成率" value={stats.completedRate} unit="%" icon={CheckCircle2} />
@@ -336,33 +337,33 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
           <StatCard label="待整改地块" value={stats.rectificationCount} unit="块" icon={AlertTriangle} />
         </section>
 
-        <section className="mt-5 flex flex-wrap gap-3 rounded-[2rem] border border-white/80 bg-white/80 p-4 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
-          <button onClick={() => setView("map")} className={`rounded-2xl px-5 py-3 text-sm font-black ${view === "map" ? "bg-[#123d2f] text-white" : "bg-lime-50 text-[#123d2f]"}`}>质量一张图</button>
-          <button onClick={() => setView("database")} className={`rounded-2xl px-5 py-3 text-sm font-black ${view === "database" ? "bg-[#123d2f] text-white" : "bg-lime-50 text-[#123d2f]"}`}>质量等级数据库</button>
+        <section className="mt-5 flex flex-wrap gap-3 rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
+          <button onClick={() => setView("map")} className={`rounded-lg px-4 py-2.5 text-sm font-semibold ${view === "map" ? "bg-[#67D66E] text-[#061A24]" : "bg-white/[0.04] text-cyan-100/70"}`}>质量一张图</button>
+          <button onClick={() => setView("database")} className={`rounded-lg px-4 py-2.5 text-sm font-semibold ${view === "database" ? "bg-[#67D66E] text-[#061A24]" : "bg-white/[0.04] text-cyan-100/70"}`}>质量等级数据库</button>
           <div className="ml-auto flex flex-wrap gap-3">
-            <select value={grade} onChange={(event) => setGrade(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{gradeOptions.map((item) => <option key={item}>{item}</option>)}</select>
-            <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+            <select value={grade} onChange={(event) => setGrade(event.target.value)} className="rounded-lg bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-cyan-50 outline-none">{gradeOptions.map((item) => <option key={item}>{item}</option>)}</select>
+            <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-lg bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-cyan-50 outline-none">{statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
           </div>
         </section>
 
         {view === "map" ? (
           <section className="mt-5 grid gap-5 xl:grid-cols-[280px_minmax(760px,1fr)_420px]">
             <aside className="space-y-5">
-              <div className="rounded-[2rem] border border-white/80 bg-white/84 p-5 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
-                <p className="text-sm font-black text-lime-700">GIS 空间查询</p>
-                <div className="mt-4 flex gap-2 rounded-2xl bg-slate-100 p-2">
-                  <input value={searchText} onChange={(event) => setSearchText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") handleSearch(); }} placeholder="输入项目名称/地块编号" className="min-w-0 flex-1 bg-transparent px-2 text-sm outline-none" />
-                  <button onClick={handleSearch} className="grid h-10 w-10 place-items-center rounded-xl bg-[#123d2f] text-white"><Search className="h-4 w-4" /></button>
+              <div className="rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
+                <p className="text-[13px] font-semibold text-[#67D66E]">GIS 空间查询</p>
+                <div className="mt-3 flex gap-2 rounded-lg bg-white/[0.04] p-2">
+                  <input value={searchText} onChange={(event) => setSearchText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") handleSearch(); }} placeholder="输入项目名称/地块编号" className="min-w-0 flex-1 bg-transparent px-2 text-sm text-cyan-50 outline-none placeholder:text-cyan-100/40" />
+                  <button onClick={handleSearch} className="grid h-9 w-9 place-items-center rounded-lg bg-[#67D66E] text-[#061A24]"><Search className="h-4 w-4" /></button>
                 </div>
                 {hasSearched && (
-                  <div className="mt-4 space-y-2">
+                  <div className="mt-3 space-y-2">
                     {parcels.slice(0, 8).map((parcel) => (
-                      <button key={parcel.id} onClick={() => locateParcel(parcel)} className={`w-full rounded-2xl border px-3 py-3 text-left text-sm transition ${selectedParcel?.id === parcel.id ? "border-lime-500 bg-lime-50" : "border-slate-100 bg-white hover:bg-slate-50"}`}>
-                        <div className="font-black text-[#123d2f]">{parcel.code}</div>
-                        <div className="mt-1 text-xs text-slate-500">{parcel.projectName} · {parcel.qualityGrade}</div>
+                      <button key={parcel.id} onClick={() => locateParcel(parcel)} className={`w-full rounded-lg border px-3 py-2.5 text-left text-sm transition ${selectedParcel?.id === parcel.id ? "border-[#67D66E] bg-[#67D66E]/10" : "border-white/[0.08] bg-white/[0.02] hover:bg-white/[0.06]"}`}>
+                        <div className="font-semibold text-cyan-50">{parcel.code}</div>
+                        <div className="mt-1 text-xs text-cyan-100/50">{parcel.projectName} · {parcel.qualityGrade}</div>
                       </button>
                     ))}
-                    {!parcels.length && <div className="rounded-2xl bg-white px-3 py-4 text-sm font-bold text-slate-400">未查询到匹配项目或地块</div>}
+                    {!parcels.length && <div className="rounded-lg bg-white/[0.02] px-3 py-3 text-sm font-semibold text-cyan-100/50">未查询到匹配项目或地块</div>}
                   </div>
                 )}
               </div>
@@ -376,40 +377,40 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
             </aside>
           </section>
         ) : (
-          <section className="mt-5 rounded-[2rem] border border-white/80 bg-white/86 p-6 shadow-xl shadow-emerald-900/5 backdrop-blur-xl">
+          <section className="mt-5 rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
             <div className="flex flex-wrap items-center gap-3">
-              <div className="flex items-center gap-2 rounded-2xl bg-slate-100 px-4 py-3">
-                <Search className="h-4 w-4 text-slate-500" />
-                <input value={searchText} onChange={(event) => setSearchText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") handleSearch(); }} placeholder="行政区/项目名称/地块编号" className="w-72 bg-transparent text-sm outline-none" />
+              <div className="flex items-center gap-2 rounded-lg bg-white/[0.04] px-4 py-2.5">
+                <Search className="h-4 w-4 text-cyan-100/50" />
+                <input value={searchText} onChange={(event) => setSearchText(event.target.value)} onKeyDown={(event) => { if (event.key === "Enter") handleSearch(); }} placeholder="行政区/项目名称/地块编号" className="w-72 bg-transparent text-sm text-cyan-50 outline-none placeholder:text-cyan-100/40" />
               </div>
-              <button onClick={handleSearch} className="rounded-2xl bg-[#123d2f] px-5 py-3 text-sm font-black text-white">查询</button>
-              <select value={regionId} onChange={(event) => setRegionId(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{regionOptions.map((id) => <option key={id} value={id}>{getSupervisionRegionName(id)}</option>)}</select>
-              <select value={grade} onChange={(event) => setGrade(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{gradeOptions.map((item) => <option key={item}>{item}</option>)}</select>
-              <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-2xl bg-slate-100 px-4 py-3 text-sm font-bold outline-none">{statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
+              <button onClick={handleSearch} className="rounded-lg bg-[#67D66E] px-4 py-2.5 text-sm font-semibold text-[#061A24]">查询</button>
+              <select value={regionId} onChange={(event) => setRegionId(event.target.value)} className="rounded-lg bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-cyan-50 outline-none">{regionOptions.map((id) => <option key={id} value={id}>{getSupervisionRegionName(id)}</option>)}</select>
+              <select value={grade} onChange={(event) => setGrade(event.target.value)} className="rounded-lg bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-cyan-50 outline-none">{gradeOptions.map((item) => <option key={item}>{item}</option>)}</select>
+              <select value={status} onChange={(event) => setStatus(event.target.value)} className="rounded-lg bg-white/[0.04] px-4 py-2.5 text-sm font-semibold text-cyan-50 outline-none">{statusOptions.map((item) => <option key={item.value} value={item.value}>{item.label}</option>)}</select>
             </div>
-            <div className="mt-6 overflow-auto rounded-2xl border border-slate-200 bg-white">
+            <div className="mt-5 overflow-auto rounded-lg border border-white/[0.08] bg-white/[0.02]">
               <table className="min-w-[2280px] w-full border-collapse text-center text-sm">
-                <thead className="bg-slate-100 text-slate-800">
-                  <tr>{qualityDatabaseHeaders.map((header) => <th key={header} className="border border-slate-300 px-3 py-3 font-black">{header}</th>)}</tr>
+                <thead className="bg-white/[0.06] text-cyan-100">
+                  <tr>{qualityDatabaseHeaders.map((header) => <th key={header} className="border border-white/[0.08] px-3 py-3 font-semibold">{header}</th>)}</tr>
                 </thead>
                 <tbody>
                   {pagedParcels.map((parcel, index) => (
-                    <tr key={parcel.id} className="bg-white hover:bg-lime-50/50">
-                      {qualityDatabaseRow(parcel, (currentPage - 1) * pageSize + index).map((value, cellIndex) => <td key={`${parcel.id}-${cellIndex}`} className="whitespace-nowrap border border-slate-300 px-3 py-2 font-medium text-slate-700">{value}</td>)}
-                      <td className="whitespace-nowrap border border-slate-300 px-3 py-2"><button type="button" className="rounded-lg bg-lime-50 px-3 py-1.5 text-xs font-black text-lime-700">查看详情</button></td>
+                    <tr key={parcel.id} className="bg-transparent hover:bg-white/[0.04]">
+                      {qualityDatabaseRow(parcel, (currentPage - 1) * pageSize + index).map((value, cellIndex) => <td key={`${parcel.id}-${cellIndex}`} className="whitespace-nowrap border border-white/[0.08] px-3 py-2 text-cyan-100/70">{value}</td>)}
+                      <td className="whitespace-nowrap border border-white/[0.08] px-3 py-2"><button type="button" className="rounded-lg bg-[#67D66E]/20 px-3 py-1.5 text-xs font-semibold text-[#67D66E]">查看详情</button></td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
-            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm font-bold text-slate-600">
+            <div className="mt-4 flex flex-wrap items-center justify-between gap-3 text-sm font-semibold text-cyan-100/60">
               <span>共 {parcels.length} 条，每页 10 条，第 {currentPage} / {pageCount} 页</span>
               <div className="flex items-center gap-2">
-                <button type="button" disabled={currentPage <= 1} onClick={() => setDatabasePage((page) => Math.max(1, page - 1))} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[#123d2f] disabled:cursor-not-allowed disabled:opacity-40">上一页</button>
+                <button type="button" disabled={currentPage <= 1} onClick={() => setDatabasePage((page) => Math.max(1, page - 1))} className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-2 text-cyan-100/70 disabled:cursor-not-allowed disabled:opacity-40">上一页</button>
                 {Array.from({ length: pageCount }, (_, index) => index + 1).slice(Math.max(0, currentPage - 3), Math.min(pageCount, currentPage + 2)).map((page) => (
-                  <button type="button" key={page} onClick={() => setDatabasePage(page)} className={`h-9 min-w-9 rounded-xl px-3 text-sm font-black ${page === currentPage ? "bg-[#123d2f] text-white" : "border border-slate-200 bg-white text-[#123d2f]"}`}>{page}</button>
+                  <button type="button" key={page} onClick={() => setDatabasePage(page)} className={`h-9 min-w-9 rounded-lg px-3 text-sm font-semibold ${page === currentPage ? "bg-[#67D66E] text-[#061A24]" : "border border-white/[0.08] bg-white/[0.02] text-cyan-100/70"}`}>{page}</button>
                 ))}
-                <button type="button" disabled={currentPage >= pageCount} onClick={() => setDatabasePage((page) => Math.min(pageCount, page + 1))} className="rounded-xl border border-slate-200 bg-white px-4 py-2 text-[#123d2f] disabled:cursor-not-allowed disabled:opacity-40">下一页</button>
+                <button type="button" disabled={currentPage >= pageCount} onClick={() => setDatabasePage((page) => Math.min(pageCount, page + 1))} className="rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 py-2 text-cyan-100/70 disabled:cursor-not-allowed disabled:opacity-40">下一页</button>
               </div>
             </div>
           </section>
@@ -417,17 +418,17 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
       </section>
 
       {detailParcel && (
-        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-slate-950/55 p-6 backdrop-blur-sm">
-          <div className="max-h-[88vh] w-full max-w-4xl overflow-auto rounded-[2rem] bg-white p-7 shadow-2xl">
+        <div className="fixed inset-0 z-[9999] flex items-center justify-center bg-[#061A24]/80 p-6 backdrop-blur-sm">
+          <div className="max-h-[88vh] w-full max-w-4xl overflow-auto rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-5 shadow-2xl">
             <div className="flex items-start justify-between gap-5">
-              <div><p className="text-sm font-black text-lime-700">补充耕地质量档案</p><h2 className="mt-2 text-2xl font-black text-[#123d2f]">{detailParcel.projectName}</h2></div>
-              <button onClick={() => setDetailParcel(null)} className="text-2xl text-slate-400 hover:text-slate-700">×</button>
+              <div><p className="text-[13px] font-semibold text-[#67D66E]">补充耕地质量档案</p><h2 className="mt-2 text-xl font-bold text-cyan-50">{detailParcel.projectName}</h2></div>
+              <button onClick={() => setDetailParcel(null)} className="text-2xl text-cyan-100/50 hover:text-cyan-100">×</button>
             </div>
-            <div className="mt-6 grid gap-4 md:grid-cols-4">
-              {[["地块编号", detailParcel.code], ["质量等级", detailParcel.qualityGrade], ["鉴定状态", detailParcel.status], ["采样点", `${detailParcel.sampleCount} 个`]].map(([label, value]) => <div key={label} className="rounded-2xl bg-lime-50 p-4"><div className="text-sm font-black text-lime-700">{label}</div><div className="mt-2 text-sm font-bold text-[#123d2f]">{value}</div></div>)}
+            <div className="mt-5 grid gap-3 md:grid-cols-4">
+              {[["地块编号", detailParcel.code], ["质量等级", detailParcel.qualityGrade], ["鉴定状态", detailParcel.status], ["采样点", `${detailParcel.sampleCount} 个`]].map(([label, value]) => <div key={label} className="rounded-lg bg-white/[0.04] p-3"><div className="text-sm font-semibold text-[#67D66E]">{label}</div><div className="mt-2 text-sm text-cyan-50">{value}</div></div>)}
             </div>
-            <div className="mt-6 overflow-hidden rounded-2xl border border-slate-100">
-              <table className="w-full text-left text-sm"><thead className="bg-[#123d2f] text-white"><tr><th className="px-4 py-3">档案项</th><th className="px-4 py-3">内容</th><th className="px-4 py-3">更新时间</th></tr></thead><tbody>{[["项目位置", `${detailParcel.city}${detailParcel.county}${detailParcel.town}`, "2026-06-05"], ["评价单元", detailParcel.evaluationUnit, "2026-06-04"], ["检测结果", detailParcel.testResult, "2026-06-04"], ["验收结论", `${detailParcel.qualityGrade}，${detailParcel.status}`, "2026-06-03"]].map((row) => <tr key={row[0]} className="border-b border-slate-100"><td className="px-4 py-3 font-bold text-[#123d2f]">{row[0]}</td><td className="px-4 py-3">{row[1]}</td><td className="px-4 py-3">{row[2]}</td></tr>)}</tbody></table>
+            <div className="mt-5 overflow-hidden rounded-lg border border-white/[0.08]">
+              <table className="w-full text-left text-sm"><thead className="bg-white/[0.06] text-cyan-100"><tr><th className="px-4 py-3">档案项</th><th className="px-4 py-3">内容</th><th className="px-4 py-3">更新时间</th></tr></thead><tbody>{[["项目位置", `${detailParcel.city}${detailParcel.county}${detailParcel.town}`, "2026-06-05"], ["评价单元", detailParcel.evaluationUnit, "2026-06-04"], ["检测结果", detailParcel.testResult, "2026-06-04"], ["验收结论", `${detailParcel.qualityGrade}，${detailParcel.status}`, "2026-06-03"]].map((row) => <tr key={row[0]} className="border-b border-white/[0.08]"><td className="px-4 py-3 font-semibold text-cyan-100">{row[0]}</td><td className="px-4 py-3 text-cyan-100/70">{row[1]}</td><td className="px-4 py-3 text-cyan-100/50">{row[2]}</td></tr>)}</tbody></table>
             </div>
           </div>
         </div>

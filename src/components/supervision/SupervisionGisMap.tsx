@@ -1,7 +1,7 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
 import { MapContainer, Marker, Polygon, Tooltip, useMap } from "react-leaflet";
 import L, { type LatLngBoundsExpression, type LatLngExpression } from "leaflet";
-import { Camera, Droplets, Layers, RadioTower, Route, Sprout } from "lucide-react";
+import { Camera, Droplets, Layers, RadioTower, Route, Sprout, Sun } from "lucide-react";
 import { realSupervisionBoundaries } from "@/data/supervisionGeoBoundaries";
 import {
   devicePoints,
@@ -142,6 +142,7 @@ function layerRows() {
     ["cameras", "摄像头", Camera],
     ["moisture", "墒情设备", Droplets],
     ["insects", "虫情设备", Sprout],
+    ["weather", "气象站", Sun],
     ["boundary", "行政区边界", RadioTower],
   ] as Array<[keyof SupervisionLayers, string, typeof Layers]>;
 }
@@ -149,20 +150,22 @@ function layerRows() {
 function createRegionLabelIcon(label: string, highlighted: boolean) {
   return L.divIcon({
     className: "",
-    html: `<div style="min-width:72px;text-align:center;border-radius:999px;padding:7px 12px;background:${highlighted ? "rgba(8,47,73,.92)" : "rgba(15,23,42,.72)"};color:white;font-size:12px;font-weight:900;border:1px solid ${highlighted ? "rgba(103,232,249,.86)" : "rgba(148,163,184,.48)"};box-shadow:${highlighted ? "0 12px 30px rgba(34,211,238,.28)" : "0 8px 18px rgba(15,23,42,.2)"};white-space:nowrap;">${label}</div>`,
-    iconSize: [88, 30],
-    iconAnchor: [44, 15],
+    html: `<div style="min-width:60px;text-align:center;border-radius:14px;padding:4px 12px;background:${highlighted ? "rgba(0,130,150,0.78)" : "rgba(10,32,34,0.5)"};color:white;font-size:12px;font-weight:600;border:1px solid ${highlighted ? "rgba(80,240,255,0.65)" : "rgba(255,255,255,0.08)"};box-shadow:${highlighted ? "0 0 14px rgba(0,220,255,0.22)" : "none"};white-space:nowrap;">${label}</div>`,
+    iconSize: [76, 26],
+    iconAnchor: [38, 13],
   });
 }
 
-function createDivIcon(color: string, label: string, shape: "facility" | "camera" | "moisture" | "insect") {
+function createDivIcon(color: string, label: string, shape: "facility" | "camera" | "moisture" | "insect" | "weather") {
   const shapeHtml = shape === "facility"
     ? `<span style="display:block;width:15px;height:15px;border:2px solid #fff;border-radius:4px;position:relative;"><i style="position:absolute;left:3px;right:3px;bottom:-6px;height:6px;background:#fff;border-radius:2px;"></i></span>`
     : shape === "camera"
       ? `<span style="display:block;width:16px;height:11px;border:2px solid #fff;border-radius:3px;position:relative;"><i style="position:absolute;right:-6px;top:2px;border-left:6px solid #fff;border-top:3px solid transparent;border-bottom:3px solid transparent;"></i></span>`
       : shape === "moisture"
         ? `<span style="display:block;width:12px;height:17px;background:#fff;border-radius:9px 9px 11px 11px;transform:rotate(18deg);"></span>`
-        : `<span style="display:block;width:16px;height:12px;border:2px solid #fff;border-radius:50%;position:relative;"><i style="position:absolute;left:-5px;top:4px;width:4px;height:2px;background:#fff;"></i><i style="position:absolute;right:-5px;top:4px;width:4px;height:2px;background:#fff;"></i></span>`;
+        : shape === "weather"
+          ? `<span style="display:block;width:16px;height:16px;border-radius:50%;background:#fff;position:relative;"><i style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:6px;height:6px;background:${color};border-radius:50%;"></i><i style="position:absolute;left:50%;top:-2px;width:2px;height:6px;background:#fff;transform:translateX(-50%);"></i><i style="position:absolute;left:50%;bottom:-2px;width:2px;height:6px;background:#fff;transform:translateX(-50%);"></i><i style="position:absolute;top:50%;left:-2px;width:6px;height:2px;background:#fff;transform:translateY(-50%);"></i><i style="position:absolute;top:50%;right:-2px;width:6px;height:2px;background:#fff;transform:translateY(-50%);"></i></span>`
+          : `<span style="display:block;width:16px;height:12px;border:2px solid #fff;border-radius:50%;position:relative;"><i style="position:absolute;left:-5px;top:4px;width:4px;height:2px;background:#fff;"></i><i style="position:absolute;right:-5px;top:4px;width:4px;height:2px;background:#fff;"></i></span>`;
   return L.divIcon({
     className: "",
     html: `<div title="${label}" style="width:34px;height:34px;border-radius:12px;background:${color};border:3px solid #fff;box-shadow:0 8px 24px rgba(15,23,42,.35);display:grid;place-items:center;">${shapeHtml}</div>`,
@@ -225,23 +228,20 @@ function RegionCascade({ regionId, onRegionChange }: { regionId: string; onRegio
   const countyOptions = chain.cityId === "hefei" ? supervisionRegions.filter((region) => region.id === "feixi") : [];
 
   return (
-    <div className="absolute left-4 top-4 z-[500] rounded-2xl border border-white/80 bg-white/92 p-3 text-slate-700 shadow-2xl shadow-emerald-950/20 backdrop-blur-xl">
-      <div className="mb-2 flex items-center justify-between gap-5">
-        <div>
-          <p className="text-xs font-black text-emerald-700">行政区联动定位</p>
-          <p className="text-sm font-black text-[#123d2f]">当前：{getSupervisionRegionName(regionId)}</p>
-        </div>
-        {regionId !== "anhui" && <button onClick={() => onRegionChange(getSupervisionParentRegion(regionId))} className="rounded-full bg-emerald-50 px-3 py-1 text-xs font-black text-emerald-700">返回上级</button>}
+    <div className="absolute left-4 top-4 z-[500] w-[280px] rounded-[10px] border border-[rgba(90,220,220,0.22)] bg-[rgba(8,42,52,0.86)] p-3 text-[#E8FFFF] shadow-2xl backdrop-blur-[8px]">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold text-[#E8FFFF]">行政区联动定位｜当前：{getSupervisionRegionName(regionId)}</p>
+        {regionId !== "anhui" && <button onClick={() => onRegionChange(getSupervisionParentRegion(regionId))} className="shrink-0 rounded-full bg-[rgba(0,130,150,0.78)] px-2 py-0.5 text-[10px] font-semibold text-[#E8FFFF] border border-[rgba(80,240,255,0.65)]">返回上级</button>}
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <select value={chain.provinceId} onChange={(event) => onRegionChange(event.target.value)} className="h-10 rounded-xl border border-emerald-100 bg-emerald-50 px-3 text-xs font-black text-[#123d2f] outline-none">
+        <select value={chain.provinceId} onChange={(event) => onRegionChange(event.target.value)} className="h-8 rounded-[8px] border border-[rgba(90,220,220,0.22)] bg-[rgba(8,42,52,0.9)] px-2 text-[11px] font-semibold text-[#E8FFFF] outline-none">
           <option value="anhui">安徽省</option>
         </select>
-        <select value={chain.cityId} onChange={(event) => onRegionChange(event.target.value || "anhui")} className="h-10 rounded-xl border border-emerald-100 bg-white px-3 text-xs font-black text-[#123d2f] outline-none">
+        <select value={chain.cityId} onChange={(event) => onRegionChange(event.target.value || "anhui")} className="h-8 rounded-[8px] border border-[rgba(90,220,220,0.22)] bg-[rgba(8,42,52,0.9)] px-2 text-[11px] font-semibold text-[#E8FFFF] outline-none">
           <option value="">全部市</option>
           {cityOptions.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}
         </select>
-        <select value={chain.countyId} onChange={(event) => onRegionChange(event.target.value || chain.cityId || "anhui")} className="h-10 rounded-xl border border-emerald-100 bg-white px-3 text-xs font-black text-[#123d2f] outline-none">
+        <select value={chain.countyId} onChange={(event) => onRegionChange(event.target.value || chain.cityId || "anhui")} className="h-8 rounded-[8px] border border-[rgba(90,220,220,0.22)] bg-[rgba(8,42,52,0.9)] px-2 text-[11px] font-semibold text-[#E8FFFF] outline-none">
           <option value="">全部区县</option>
           {countyOptions.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}
         </select>
@@ -278,8 +278,62 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
   }, [externalSelectedPath, externalSelectedProject, selectedParcel]);
 
   return (
-    <div className="relative h-[720px] overflow-hidden rounded-[2.2rem] border border-sky-200/18 bg-[#001b31] shadow-[0_28px_90px_rgba(0,24,45,0.34)]">
-      <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#001b31]" scrollWheelZoom>
+    <>
+      <style>{`
+        .leaflet-tooltip {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+        }
+        .leaflet-tooltip::before {
+          display: none !important;
+        }
+        .leaflet-control-zoom {
+          border: 1px solid rgba(90, 220, 220, 0.25) !important;
+          border-radius: 10px !important;
+          background: rgba(8, 42, 52, 0.9) !important;
+          backdrop-filter: blur(8px) !important;
+        }
+        .leaflet-control-zoom a {
+          width: 36px !important;
+          height: 36px !important;
+          line-height: 36px !important;
+          color: #E8FFFF !important;
+          background: rgba(8, 42, 52, 0.9) !important;
+          border-bottom: 1px solid rgba(90, 220, 220, 0.25) !important;
+          font-size: 18px !important;
+          font-weight: 600 !important;
+        }
+        .leaflet-control-zoom a:hover {
+          background: rgba(0, 130, 150, 0.78) !important;
+          color: #E8FFFF !important;
+        }
+        .leaflet-control-zoom a:first-child {
+          border-radius: 10px 10px 0 0 !important;
+        }
+        .leaflet-control-zoom a:last-child {
+          border-radius: 0 0 10px 10px !important;
+          border-bottom: none !important;
+        }
+        .leaflet-control-attribution {
+          background: rgba(5, 35, 45, 0.68) !important;
+          color: rgba(232, 255, 255, 0.6) !important;
+          border: 1px solid rgba(140, 230, 235, 0.16) !important;
+          border-radius: 8px !important;
+          padding: 4px 8px !important;
+          font-size: 11px !important;
+          backdrop-filter: blur(8px) !important;
+        }
+        .leaflet-control-attribution a {
+          color: rgba(232, 255, 255, 0.8) !important;
+        }
+        .leaflet-container {
+          background: radial-gradient(circle at center, rgba(31,150,120,0.12), transparent 45%), linear-gradient(180deg, #041E2B 0%, #031722 100%) !important;
+        }
+      `}</style>
+      <div className="relative h-[720px] overflow-hidden rounded-[20px] border-[1px] border-[rgba(100,220,230,0.28)] bg-[radial-gradient(circle_at_center,rgba(31,150,120,0.12),transparent_45%),linear-gradient(180deg,#041E2B_0%,#031722_100%)] shadow-[inset_0_0_40px_rgba(0,180,200,0.06),0_0_30px_rgba(0,180,200,0.15)]">
+      <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-[110%] w-[110%] -translate-x-[5%] -translate-y-[5%] bg-[radial-gradient(circle_at_center,rgba(31,150,120,0.12),transparent_45%),linear-gradient(180deg,#041E2B_0%,#031722_100%)] drop-shadow-[0_0_22px_rgba(55,220,180,0.22)]" scrollWheelZoom>
         <OfflineBasemap />
         <RecenterMap regionId={regionId} />
         <FocusParcel path={externalSelectedPath} />
@@ -302,16 +356,35 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
                     fillColor: heatColor,
                     fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
                   }}
-                  eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined}
+                  eventHandlers={{
+                    mouseover: (e) => {
+                      const layer = e.target;
+                      layer.setStyle({
+                        color: "#F7C948",
+                        weight: 3,
+                        fillOpacity: isCountyLevel ? 0.35 : 0.78,
+                      });
+                      layer.bringToFront();
+                    },
+                    mouseout: (e) => {
+                      const layer = e.target;
+                      layer.setStyle({
+                        color: boundary.highlighted ? "#f8fafc" : "rgba(255,255,255,.78)",
+                        weight: boundary.highlighted ? 3.2 : 1.4,
+                        fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
+                      });
+                    },
+                    ...(boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : {}),
+                  }}
                 >
                   {!isCountyLevel && (
-                    <Tooltip sticky direction="top" opacity={0.96}>
-                      <div className="min-w-40 text-sm leading-6">
-                        <div className="font-black text-[#123d2f]">{boundary.name}</div>
-                        <div>高标田项目：{stats.projectCount} 个</div>
-                        <div>建设面积：{stats.area.toFixed(1)} 万亩</div>
-                        <div>投资金额：{stats.investment.toFixed(1)} 亿元</div>
-                        <div>平均进度：{stats.avgProgress}%</div>
+                    <Tooltip sticky direction="top" opacity={0.96} className="region-tooltip">
+                      <div className="min-w-40 rounded-lg border border-[rgba(39,215,232,0.2)] bg-[rgba(6,26,36,0.95)] p-3 text-[13px] leading-6 text-[#E8FFFF] shadow-lg backdrop-blur-sm">
+                        <div className="font-semibold text-[#EAFBFF]">{boundary.name}</div>
+                        <div className="text-[rgba(234,251,255,0.85)]">高标田项目：{stats.projectCount} 个</div>
+                        <div className="text-[rgba(234,251,255,0.85)]">建设面积：{stats.area.toFixed(1)} 万亩</div>
+                        <div className="text-[rgba(234,251,255,0.85)]">投资金额：{stats.investment.toFixed(1)} 亿元</div>
+                        <div className="text-[rgba(234,251,255,0.85)]">平均进度：{stats.avgProgress}%</div>
                       </div>
                     </Tooltip>
                   )}
@@ -356,9 +429,9 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
         {showProjectLayers && layers.facilities && visibleFacilities.map((point) => (
           <Marker key={point.id} position={point.latLng} icon={createDivIcon(facilityColor(point.type), point.type, "facility")} eventHandlers={{ click: () => setSelectedItem({ type: "facility", item: point }) }} />
         ))}
-        {showProjectLayers && visibleDevices.filter((item) => (item.type === "摄像头" && layers.cameras) || (item.type === "墒情设备" && layers.moisture) || (item.type === "虫情设备" && layers.insects)).map((point) => {
-          const color = point.status === "预警" ? "#f97316" : point.status === "离线" ? "#64748b" : "#06b6d4";
-          const iconShape = point.type === "摄像头" ? "camera" : point.type === "墒情设备" ? "moisture" : "insect";
+        {showProjectLayers && visibleDevices.filter((item) => (item.type === "摄像头" && layers.cameras) || (item.type === "墒情设备" && layers.moisture) || (item.type === "虫情设备" && layers.insects) || (item.type === "气象站" && layers.weather)).map((point) => {
+          const color = point.status === "预警" ? "#f97316" : point.status === "离线" ? "#64748b" : point.type === "气象站" ? "#a855f7" : "#06b6d4";
+          const iconShape = point.type === "摄像头" ? "camera" : point.type === "墒情设备" ? "moisture" : point.type === "气象站" ? "weather" : "insect";
           return (
             <Marker key={point.id} position={point.latLng} icon={createDivIcon(color, point.type, iconShape)} eventHandlers={{ click: () => setSelectedItem({ type: "device", item: point }) }} />
           );
@@ -368,68 +441,66 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[400] h-24 bg-gradient-to-b from-slate-950/32 to-transparent" />
       <RegionCascade regionId={regionId} onRegionChange={onRegionDrill} />
       {regionId !== "feixi" && (
-        <div className="absolute right-5 top-20 z-[500] rounded-2xl border border-white/18 bg-slate-950/72 p-4 text-white shadow-2xl backdrop-blur-xl">
-          <div className="mb-3 text-sm font-black text-cyan-100">高标田建设热力</div>
-          <div className="mb-3 flex gap-2">
+        <div className="absolute right-5 top-20 z-[500] w-[240px] rounded-[12px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.68)] p-2.5 text-white shadow-2xl backdrop-blur-[8px]">
+          <div className="mb-1.5 text-[11px] font-semibold text-[#E8FFFF]">高标田建设热力</div>
+          <div className="mb-2 flex gap-2">
             <button
               onClick={() => setHeatMode("projectCount")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${heatMode === "projectCount" ? "bg-cyan-500 text-white" : "bg-white/10 text-cyan-100 hover:bg-white/20"}`}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all ${heatMode === "projectCount" ? "bg-[rgba(0,130,150,0.78)] text-[#E8FFFF] border border-[rgba(80,240,255,0.65)]" : "bg-[rgba(255,255,255,0.06)] text-[#E8FFFF] hover:bg-[rgba(255,255,255,0.12)]"}`}
             >
               项目数量
             </button>
             <button
               onClick={() => setHeatMode("constructionArea")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${heatMode === "constructionArea" ? "bg-cyan-500 text-white" : "bg-white/10 text-cyan-100 hover:bg-white/20"}`}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all ${heatMode === "constructionArea" ? "bg-[rgba(0,130,150,0.78)] text-[#E8FFFF] border border-[rgba(80,240,255,0.65)]" : "bg-[rgba(255,255,255,0.06)] text-[#E8FFFF] hover:bg-[rgba(255,255,255,0.12)]"}`}
             >
               建设面积
             </button>
           </div>
-          <div className="text-xs text-cyan-50/70">{heatMode === "projectCount" ? "按项目数量分级设色" : "按建设面积分级设色"}</div>
-          <div className="mt-3 space-y-2">
+          <div className="text-[10px] text-[rgba(232,255,255,0.6)]">{heatMode === "projectCount" ? "按项目数量分级设色" : "按建设面积分级设色"}</div>
+          <div className="mt-1.5 space-y-1">
             {heatLegends[heatMode].map((item) => (
-              <div key={item.label} className="flex items-center gap-2">
-                <span className="h-4 w-4 rounded" style={{ backgroundColor: item.color }} />
-                <span className="text-xs text-cyan-50">{item.label}</span>
+              <div key={item.label} className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded" style={{ backgroundColor: item.color }} />
+                <span className="text-[10px] text-[#E8FFFF]">{item.label}</span>
               </div>
             ))}
           </div>
         </div>
       )}
-      <div className="absolute bottom-5 left-5 z-[500] w-56 rounded-3xl border border-white/18 bg-slate-950/68 p-4 text-white shadow-2xl backdrop-blur-xl">
-        <div className="mb-3 flex items-center gap-2 text-sm font-black"><Layers className="h-4 w-4 text-cyan-200" />图层控制</div>
+      <div className="absolute bottom-5 left-5 z-[500] w-[240px] rounded-[12px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.72)] p-2.5 text-white shadow-2xl backdrop-blur-[8px]">
+        <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-[#E8FFFF]"><Layers className="h-3 w-3 text-[rgba(232,255,255,0.5)]" />图层控制</div>
         {layerRows().map(([key, label, Icon]) => (
-          <label key={key} className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white/10 px-3 py-2 text-xs text-cyan-50/88">
-            <span className="flex items-center gap-2"><Icon className="h-4 w-4 text-cyan-200" />{label}</span>
-            <input checked={layers[key]} onChange={(event) => onLayersChange({ ...layers, [key]: event.target.checked })} type="checkbox" className="accent-cyan-300" />
+          <label key={key} className="mt-1 flex items-center justify-between gap-3 rounded-[8px] bg-[rgba(255,255,255,0.04)] px-2.5 py-1.5 text-[11px] text-[#E8FFFF]">
+            <span className="flex items-center gap-2"><Icon className="h-3 w-3 text-[rgba(232,255,255,0.5)]" />{label}</span>
+            <input checked={layers[key]} onChange={(event) => onLayersChange({ ...layers, [key]: event.target.checked })} type="checkbox" className="h-3.5 w-3.5 accent-[rgba(0,180,200,0.9)]" />
           </label>
         ))}
       </div>
-      <div className="absolute bottom-5 right-5 z-[500] rounded-2xl border border-white/18 bg-slate-950/62 px-4 py-3 text-xs text-cyan-50 shadow-2xl backdrop-blur-xl">
-        <div className="flex items-center gap-4"><span className="text-cyan-200">自绘区划底图</span><span>安徽省-合肥市-肥西县</span><span>三级统一下钻</span></div>
-      </div>
       {selectedItem && (
-        <div className="absolute right-5 top-20 z-[500] w-[340px] rounded-3xl border border-white/80 bg-white p-5 text-slate-800 shadow-2xl shadow-emerald-950/25">
+        <div className="absolute right-5 top-20 z-[500] w-[340px] rounded-[14px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.72)] p-4 text-[#E8FFFF] shadow-2xl backdrop-blur-[8px]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black text-cyan-700">{selectedItem.type === "project" ? "项目区属性卡" : selectedItem.type === "parcel" ? "田块属性卡" : selectedItem.type === "facility" ? "工程设施点位" : "物联网设备点位"}</p>
-              <h3 className="mt-1 text-lg font-black text-[#123d2f]">{selectedItem.type === "parcel" ? parcelCode(selectedItem.item.project, selectedItem.item.index) : selectedItem.item.name}</h3>
+              <p className="text-[11px] font-semibold text-[rgba(232,255,255,0.6)]">{selectedItem.type === "project" ? "项目区属性卡" : selectedItem.type === "parcel" ? "田块属性卡" : selectedItem.type === "facility" ? "工程设施点位" : "物联网设备点位"}</p>
+              <h3 className="mt-1 text-base font-semibold text-[#E8FFFF]">{selectedItem.type === "parcel" ? parcelCode(selectedItem.item.project, selectedItem.item.index) : selectedItem.item.name}</h3>
             </div>
-            <button onClick={() => setSelectedItem(null)} className="text-xl text-slate-400 hover:text-slate-700">×</button>
+            <button onClick={() => setSelectedItem(null)} className="text-xl text-[rgba(232,255,255,0.6)] hover:text-[#E8FFFF]">×</button>
           </div>
-          {selectedItem.type === "project" && <div className="mt-4 text-sm leading-7">项目编号：{selectedItem.item.code}<br />建设面积：{selectedItem.item.area.toLocaleString()} 亩<br />投资金额：{selectedItem.item.investment.toLocaleString()} 万元<br />当前进度：{selectedItem.item.progress}%</div>}
-          {selectedItem.type === "parcel" && <div className="mt-4 text-sm leading-7">所属项目：{selectedItem.item.project.name}<br />地块编号：{parcelCode(selectedItem.item.project, selectedItem.item.index)}<br />地块面积：{selectedItem.item.area.toLocaleString()} 亩<br />质量等级：{selectedItem.item.level} 等<br />建设状态：{selectedItem.item.project.status}</div>}
-          {selectedItem.type === "facility" && <div className="mt-4 text-sm leading-7">设施类型：{selectedItem.item.type}<br />运行状态：{selectedItem.item.status}<br />工程点位已接入施工监管台账。</div>}
+          {selectedItem.type === "project" && <div className="mt-3 text-[13px] leading-6">项目编号：{selectedItem.item.code}<br />建设面积：{selectedItem.item.area.toLocaleString()} 亩<br />投资金额：{selectedItem.item.investment.toLocaleString()} 万元<br />当前进度：{selectedItem.item.progress}%</div>}
+          {selectedItem.type === "parcel" && <div className="mt-3 text-[13px] leading-6">所属项目：{selectedItem.item.project.name}<br />地块编号：{parcelCode(selectedItem.item.project, selectedItem.item.index)}<br />地块面积：{selectedItem.item.area.toLocaleString()} 亩<br />质量等级：{selectedItem.item.level} 等<br />建设状态：{selectedItem.item.project.status}</div>}
+          {selectedItem.type === "facility" && <div className="mt-3 text-[13px] leading-6">设施类型：{selectedItem.item.type}<br />运行状态：{selectedItem.item.status}<br />工程点位已接入施工监管台账。</div>}
           {selectedItem.type === "device" && (
-            <div className="mt-4 text-sm leading-7">
+            <div className="mt-3 text-[13px] leading-6">
               <div>设备类型：{selectedItem.item.type}</div>
               <div>在线状态：{selectedItem.item.status}</div>
               <div>实时数据：{selectedItem.item.value}</div>
               <div>采集时间：{selectedItem.item.time}</div>
-              <button onClick={() => onOpenDeviceDetail(selectedItem.item)} className="mt-4 flex w-full items-center justify-center rounded-2xl bg-[#123d2f] px-5 py-3 text-sm font-black text-white shadow-lg shadow-emerald-950/15 hover:bg-[#0f3026]">查看详情</button>
+              <button onClick={() => onOpenDeviceDetail(selectedItem.item)} className="mt-3 flex w-full items-center justify-center rounded-[10px] bg-[rgba(0,130,150,0.78)] px-4 py-2 text-[13px] font-semibold text-[#E8FFFF] shadow-lg border border-[rgba(80,240,255,0.65)] hover:bg-[rgba(0,150,170,0.85)]">查看详情</button>
             </div>
           )}
         </div>
       )}
-    </div>
+      </div>
+    </>
   );
 }
