@@ -69,22 +69,21 @@ const soils = ["水稻土", "潮土", "黄棕壤", "砂姜黑土"];
 export const plots: Plot[] = supplementaryParcels.map((parcel, index) => {
   const level = ((index * 7 + 3) % 10) + 1;
   const status = statuses[index % statuses.length];
-  const no = `${String(index + 1).padStart(6, "0")}`;
   const isHighStandard = true;
   return {
-    id: `permanent-vector-${index + 1}`,
-    plotNo: `TB-340123-${String(5600 + index).padStart(6, "0")}`,
-    blockNo: `YJJBNT-340123-${no}`,
-    regionId: "feixi",
-    city: "合肥市",
-    county: "肥西县",
-    town: "花岗镇",
+    id: parcel.id,
+    plotNo: parcel.code,
+    blockNo: parcel.code,
+    regionId: parcel.regionId,
+    city: parcel.city,
+    county: parcel.county,
+    town: parcel.town,
     village: `${["董岗社区", "花岗社区", "芮店社区", "善岗村", "杨湾村"][index % 5]}`,
-    area: Number((parcel.area * 1.08).toFixed(2)),
+    area: parcel.area,
     landType: parcel.landType,
     qualityLevel: level,
     isHighStandard,
-    projectName: `2024 年肥西县花岗镇高标准农田建设项目`,
+    projectName: parcel.projectName,
     archiveStatus: status,
     updatedAt: `2026-05-${String(10 + (index % 19)).padStart(2, "0")}`,
     points: "",

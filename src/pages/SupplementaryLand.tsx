@@ -130,8 +130,17 @@ function qualityDatabaseRow(parcel: SupplementaryParcel, index: number) {
   ];
 }
 
-function AcceptanceProgressPanel({ parcels }: { parcels: SupplementaryParcel[] }) {
-  const total = Math.max(parcels.length, 1);
+function AcceptanceProgressPanel({ parcels, regionId }: { parcels: SupplementaryParcel[]; regionId: string }) {
+  // 省级和市级使用假数据，市级数据约为省级的30%
+  const fakeStatusData: Record<string, { total: number; statuses: Record<SupplementaryStatus, number> }> = {
+    anhui: { total: 103202, statuses: { "待鉴定": 8256, "县级初验": 12384, "市级复核": 10320, "省级备案": 14448, "整改中": 3612, "已通过": 54182 } },
+    hefei: { total: 3566, statuses: { "待鉴定": 285, "县级初验": 427, "市级复核": 356, "省级备案": 498, "整改中": 125, "已通过": 1875 } },
+  };
+  
+  const isFeixi = regionId === "feixi";
+  const fakeData = fakeStatusData[regionId] || fakeStatusData.anhui;
+  const total = isFeixi ? Math.max(parcels.length, 1) : fakeData.total;
+  
   return (
     <div className="rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
       <div className="flex items-center justify-between">
@@ -139,11 +148,11 @@ function AcceptanceProgressPanel({ parcels }: { parcels: SupplementaryParcel[] }
           <p className="text-[13px] font-semibold text-[#67D66E]">地区验收进度</p>
           <h3 className="mt-1 text-lg font-bold text-cyan-50">流程状态分布</h3>
         </div>
-        <span className="rounded-full bg-[#67D66E]/20 px-3 py-1 text-xs font-semibold text-[#67D66E]">{parcels.length} 块</span>
+        <span className="rounded-full bg-[#67D66E]/20 px-3 py-1 text-xs font-semibold text-[#67D66E]">{total} 块</span>
       </div>
       <div className="mt-4 space-y-3">
         {acceptanceStatuses.map((status) => {
-          const count = parcels.filter((parcel) => parcel.status === status).length;
+          const count = isFeixi ? parcels.filter((parcel) => parcel.status === status).length : fakeData.statuses[status];
           const percent = (count / total) * 100;
           return (
             <div key={status}>
@@ -157,10 +166,10 @@ function AcceptanceProgressPanel({ parcels }: { parcels: SupplementaryParcel[] }
   );
 }
 
-function ConformityPie({ parcels }: { parcels: SupplementaryParcel[] }) {
+function ConformityPie({ parcels, passRate }: { parcels: SupplementaryParcel[]; passRate?: number }) {
   const passed = passedCount(parcels);
   const total = Math.max(parcels.length, 1);
-  const percent = (passed / total) * 100;
+  const percent = passRate !== undefined ? passRate : (passed / total) * 100;
   return (
     <div className="flex items-center justify-center py-4">
       <div className="grid h-32 w-32 place-items-center rounded-full" style={{ background: `conic-gradient(#67D66E 0 ${percent}%, #FF9F3F ${percent}% 100%)` }}>
@@ -170,9 +179,11 @@ function ConformityPie({ parcels }: { parcels: SupplementaryParcel[] }) {
   );
 }
 
-function QualityLevelBars({ parcels }: { parcels: SupplementaryParcel[] }) {
+function QualityLevelBars({ parcels, qualityDistribution }: { parcels: SupplementaryParcel[]; qualityDistribution?: number[] }) {
   const levels = Array.from({ length: 10 }, (_, index) => index + 1);
-  const areaRows = levels.map((level) => ({ level, area: syntheticQualityArea(parcels, level) }));
+  const areaRows = qualityDistribution 
+    ? levels.map((level, index) => ({ level, area: qualityDistribution[index] * 10000 })) // 转换为亩
+    : levels.map((level) => ({ level, area: syntheticQualityArea(parcels, level) }));
   const maxArea = Math.max(...areaRows.map((row) => row.area), 1);
   return (
     <div className="mt-4 rounded-lg border border-white/[0.08] bg-white/[0.02] px-4 pb-4 pt-5">
@@ -191,21 +202,46 @@ function QualityLevelBars({ parcels }: { parcels: SupplementaryParcel[] }) {
   );
 }
 
-function RegionStatsPanel({ regionName, parcels }: { regionName: string; parcels: SupplementaryParcel[] }) {
+function RegionStatsPanel({ regionName, parcels, regionId }: { regionName: string; parcels: SupplementaryParcel[]; regionId: string }) {
+  // 省级和市级使用假数据，市级数据约为省级的30%
+  const fakeRegionData: Record<string, { area: number; count: number; projectCount: number; passRate: number; qualityDistribution: number[] }> = {
+    anhui: { 
+      area: 177800, 
+      count: 103202, 
+      projectCount: 117, 
+      passRate: 87.5,
+      qualityDistribution: [12, 28, 45, 52, 48, 38, 32, 25, 18, 10] // 1-10等的面积分布（万亩）
+    },
+    hefei: { 
+      area: 52800, 
+      count: 3566, 
+      projectCount: 35, 
+      passRate: 82.3,
+      qualityDistribution: [4, 9, 15, 18, 16, 12, 10, 8, 5, 3]
+    },
+  };
+  
+  const isFeixi = regionId === "feixi";
+  const fakeData = fakeRegionData[regionId] || fakeRegionData.anhui;
   const stats = buildSupplementaryStats(parcels);
+  
+  const displayArea = isFeixi ? stats.area : fakeData.area;
+  const displayCount = isFeixi ? stats.count : fakeData.count;
+  const displayProjectCount = isFeixi ? projectNameCounts(parcels) : fakeData.projectCount;
+  
   return (
     <div className="rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
       <h3 className="text-xl font-bold text-cyan-50">区域验收统计</h3>
       <div className="mt-4 space-y-2 text-base leading-7 text-cyan-100/70">
         <p>行政区划：{regionName}</p>
-        <p>补充耕地面积：{stats.area.toLocaleString()}亩</p>
-        <p>图斑数量：{stats.count}</p>
-        <p>项目数量：{projectNameCounts(parcels)}</p>
+        <p>补充耕地面积：{displayArea.toLocaleString()}亩</p>
+        <p>图斑数量：{displayCount}</p>
+        <p>项目数量：{displayProjectCount}</p>
       </div>
       <h4 className="mt-6 text-base font-semibold text-cyan-100/80">农业符合性评价通过情况</h4>
-      <ConformityPie parcels={parcels} />
+      <ConformityPie parcels={parcels} passRate={isFeixi ? undefined : fakeData.passRate} />
       <h4 className="mt-5 text-base font-semibold text-cyan-100/80">耕地质量等级分布</h4>
-      <QualityLevelBars parcels={parcels} />
+      <QualityLevelBars parcels={parcels} qualityDistribution={isFeixi ? undefined : fakeData.qualityDistribution} />
     </div>
   );
 }
@@ -257,10 +293,10 @@ function ParcelStatsPanel({ parcel, onOpenDetail }: { parcel: SupplementaryParce
   );
 }
 
-function DynamicStatsPanel({ selection, regionName, parcels, onOpenDetail }: { selection: SupplementarySelection; regionName: string; parcels: SupplementaryParcel[]; onOpenDetail: (parcel: SupplementaryParcel) => void }) {
+function DynamicStatsPanel({ selection, regionName, parcels, onOpenDetail, regionId }: { selection: SupplementarySelection; regionName: string; parcels: SupplementaryParcel[]; onOpenDetail: (parcel: SupplementaryParcel) => void; regionId: string }) {
   if (selection.type === "project") return <ProjectStatsPanel project={selection.project} />;
   if (selection.type === "parcel") return <ParcelStatsPanel parcel={selection.parcel} onOpenDetail={onOpenDetail} />;
-  return <RegionStatsPanel regionName={regionName} parcels={parcels} />;
+  return <RegionStatsPanel regionName={regionName} parcels={parcels} regionId={regionId} />;
 }
 
 export default function SupplementaryLand({ onBack, initialView = "map" }: SupplementaryLandProps) {
@@ -279,6 +315,19 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
   const parcels = useMemo(() => filterSupplementaryParcels(regionId, keyword, grade, status), [grade, keyword, regionId, status]);
   const mapParcels = useMemo(() => filterSupplementaryParcels(regionId, "", grade, status), [grade, regionId, status]);
   const stats = useMemo(() => historicalStats(parcels), [parcels]);
+  // 顶部统计使用安徽省假数据
+  const topStats = {
+    projectCount: 117,
+    parcelCount: 103202,
+    supplementaryArea: 177800,
+    completedRate: 87.5,
+    storageArea: 155575,
+    qualityRate: 92.3,
+    rectificationCount: 3612,
+  };
+  // 省级和市级使用假数据，只有肥西县使用真数据
+  const isFeixi = regionId === "feixi";
+  const displayParcels = isFeixi ? parcels : [];
   const pageSize = 10;
   const pageCount = Math.max(1, Math.ceil(parcels.length / pageSize));
   const currentPage = Math.min(databasePage, pageCount);
@@ -329,12 +378,12 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
         </header>
 
         <section className="mt-5 grid gap-3 md:grid-cols-2 xl:grid-cols-6">
-          <StatCard label="项目数 / 地块数" value={`${stats.projectCount} / ${stats.parcelCount}`} unit="个 / 块" icon={Sprout} />
-          <StatCard label="补充耕地面积" value={stats.supplementaryArea.toLocaleString()} unit="亩" icon={BarChart3} />
-          <StatCard label="验收完成率" value={stats.completedRate} unit="%" icon={CheckCircle2} />
-          <StatCard label="合格入库面积" value={stats.storageArea.toLocaleString()} unit="亩" icon={PackageCheck} />
-          <StatCard label="质量达标率" value={stats.qualityRate} unit="%" icon={FileSearch} />
-          <StatCard label="待整改地块" value={stats.rectificationCount} unit="块" icon={AlertTriangle} />
+          <StatCard label="项目数 / 地块数" value={`${topStats.projectCount} / ${topStats.parcelCount}`} unit="个 / 块" icon={Sprout} />
+          <StatCard label="补充耕地面积" value={topStats.supplementaryArea.toLocaleString()} unit="亩" icon={BarChart3} />
+          <StatCard label="验收完成率" value={topStats.completedRate} unit="%" icon={CheckCircle2} />
+          <StatCard label="合格入库面积" value={topStats.storageArea.toLocaleString()} unit="亩" icon={PackageCheck} />
+          <StatCard label="质量达标率" value={topStats.qualityRate} unit="%" icon={FileSearch} />
+          <StatCard label="待整改地块" value={topStats.rectificationCount} unit="块" icon={AlertTriangle} />
         </section>
 
         <section className="mt-5 flex flex-wrap gap-3 rounded-[10px] border border-[#27D7E8]/20 bg-[#0A2530] p-4 shadow-lg">
@@ -367,13 +416,13 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
                   </div>
                 )}
               </div>
-              <AcceptanceProgressPanel parcels={parcels} />
+              <AcceptanceProgressPanel parcels={parcels} regionId={regionId} />
             </aside>
 
             <SupplementaryLandMap parcels={mapParcels} regionId={regionId} selectedParcelId={selectedParcel?.id} selectedProjectName={selection.type === "project" ? selection.project.id : null} layers={layers} onLayersChange={setLayers} onParcelSelect={selectParcel} onProjectSelect={(project) => { setSelectedParcel(null); setSelection({ type: "project", project }); }} onRegionDrill={setRegionId} onOpenParcelDetail={setDetailParcel} />
 
             <aside className="space-y-5">
-              <DynamicStatsPanel selection={selection} regionName={getSupervisionRegionName(regionId)} parcels={parcels} onOpenDetail={setDetailParcel} />
+              <DynamicStatsPanel selection={selection} regionName={getSupervisionRegionName(regionId)} parcels={parcels} onOpenDetail={setDetailParcel} regionId={regionId} />
             </aside>
           </section>
         ) : (
@@ -397,7 +446,12 @@ export default function SupplementaryLand({ onBack, initialView = "map" }: Suppl
                   {pagedParcels.map((parcel, index) => (
                     <tr key={parcel.id} className="bg-transparent hover:bg-white/[0.04]">
                       {qualityDatabaseRow(parcel, (currentPage - 1) * pageSize + index).map((value, cellIndex) => <td key={`${parcel.id}-${cellIndex}`} className="whitespace-nowrap border border-white/[0.08] px-3 py-2 text-cyan-100/70">{value}</td>)}
-                      <td className="whitespace-nowrap border border-white/[0.08] px-3 py-2"><button type="button" className="rounded-lg bg-[#67D66E]/20 px-3 py-1.5 text-xs font-semibold text-[#67D66E]">查看详情</button></td>
+                      <td className="whitespace-nowrap border border-white/[0.08] px-3 py-2">
+                        <div className="flex gap-2">
+                          <button type="button" onClick={() => setDetailParcel(parcel)} className="rounded-lg bg-[#27D7E8]/20 px-3 py-1.5 text-xs font-semibold text-[#27D7E8]">详情</button>
+                          <button type="button" onClick={() => { setRegionId("feixi"); setView("map"); window.setTimeout(() => selectParcel(parcel), 100); }} className="rounded-lg bg-[#67D66E]/20 px-3 py-1.5 text-xs font-semibold text-[#67D66E]">定位</button>
+                        </div>
+                      </td>
                     </tr>
                   ))}
                 </tbody>

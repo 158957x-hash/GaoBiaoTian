@@ -29,7 +29,7 @@ export type SupplementaryParcel = {
   samplePoints: Array<[number, number]>;
 };
 
-export const supplementaryParcels: SupplementaryParcel[] = [
+export const supplementaryParcelsRaw: SupplementaryParcel[] = [
 {
     id: "vector-1",
     code: "Z46010720250005_YS_050",
@@ -2372,6 +2372,51 @@ export const supplementaryParcels: SupplementaryParcel[] = [
   }
 ];
 
+// 根据坐标分组更新地块的项目名称
+function assignProjectNames(parcels: SupplementaryParcel[]): SupplementaryParcel[] {
+  if (!parcels.length) return parcels;
+  
+  const centers = parcels.map((parcel) => parcel.latLng);
+  const minLat = Math.min(...centers.map(([lat]) => lat));
+  const maxLat = Math.max(...centers.map(([lat]) => lat));
+  const minLng = Math.min(...centers.map(([, lng]) => lng));
+  const maxLng = Math.max(...centers.map(([, lng]) => lng));
+  const midLat = (minLat + maxLat) / 2;
+  const midLng = (minLng + maxLng) / 2;
+  const lowerCut = midLat - 0.004;
+  
+  // 三个项目的名称
+  const projectNames = [
+    "肥西县花岗镇补充耕地项目1",
+    "肥西县花岗镇补充耕地项目2",
+    "肥西县花岗镇补充耕地项目3",
+  ];
+  
+  return parcels.map((parcel) => {
+    let projectIndex = 0;
+    if (parcel.latLng[1] < midLng && parcel.latLng[0] >= lowerCut) {
+      projectIndex = 0;
+    } else if (parcel.latLng[1] < midLng && parcel.latLng[0] < lowerCut) {
+      projectIndex = 1;
+    } else {
+      projectIndex = 2;
+    }
+    
+    return {
+      ...parcel,
+      projectName: projectNames[projectIndex],
+    };
+  });
+}
+
+// 应用项目名称分配
+const assignedParcels = assignProjectNames(supplementaryParcelsRaw);
+// 替换原数组内容
+supplementaryParcelsRaw.length = 0;
+supplementaryParcelsRaw.push(...assignedParcels);
+
+export const supplementaryParcels = supplementaryParcelsRaw;
+
 export const defaultSupplementaryLayers: SupplementaryLayers = {
   parcels: true,
   units: true,
@@ -2390,7 +2435,9 @@ export function supplementaryGradeColor(grade: QualityGrade) {
 export function filterSupplementaryParcels(regionId: string, keyword: string, grade: string, status: string) {
   return supplementaryParcels.filter((item) => {
     const regionMatch = regionId === "anhui" || item.regionId === regionId || (regionId === "hefei" && ["changfeng", "feidong", "feixi"].includes(item.regionId)) || (regionId === "suzhou" && ["yongqiao", "lingbi"].includes(item.regionId)) || (regionId === "fuyang" && ["yingzhou", "taihe"].includes(item.regionId));
-    const keywordMatch = !keyword || item.projectName.includes(keyword) || item.code.includes(keyword) || item.county.includes(keyword) || item.town.includes(keyword);
+    // 去除项目名称中的编号（如Z46010720250005）后再匹配
+    const cleanProjectName = item.projectName.replace(/[A-Z]\d{10,}/g, "");
+    const keywordMatch = !keyword || item.projectName.includes(keyword) || cleanProjectName.includes(keyword) || item.code.includes(keyword) || item.county.includes(keyword) || item.town.includes(keyword);
     const gradeMatch = grade === "全部" || item.qualityGrade === grade;
     const statusMatch = status === "全部" || item.status === status;
     return regionMatch && keywordMatch && gradeMatch && statusMatch;

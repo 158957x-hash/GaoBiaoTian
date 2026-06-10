@@ -121,16 +121,26 @@ function RecenterMap({ regionId }: { regionId: string }) {
   return null;
 }
 
+function FocusPlot({ plot }: { plot?: Plot | null }) {
+  const map = useMap();
+  useEffect(() => {
+    if (!plot?.path.length) return;
+    const bounds = L.latLngBounds(plot.path.map(([lat, lng]) => L.latLng(lat, lng)));
+    map.fitBounds(bounds.pad(2.6), { animate: true, duration: 0.55, maxZoom: 16 });
+  }, [map, plot]);
+  return null;
+}
+
 function getGradeColor(level: number) {
   return gradePalette[Math.min(Math.max(level, 1), 10) - 1];
 }
 
-function createRegionLabelIcon(label: string) {
+function createRegionLabelIcon(label: string, highlighted: boolean) {
   return L.divIcon({
     className: "",
-    html: `<div style="min-width:72px;text-align:center;border-radius:999px;padding:7px 12px;background:rgba(15,23,42,.72);color:white;font-size:12px;font-weight:900;border:1px solid rgba(148,163,184,.48);box-shadow:0 8px 18px rgba(15,23,42,.2);white-space:nowrap;">${label}</div>`,
-    iconSize: [88, 30],
-    iconAnchor: [44, 15],
+    html: `<div style="min-width:60px;text-align:center;border-radius:14px;padding:4px 12px;background:${highlighted ? "rgba(0,130,150,0.78)" : "rgba(10,32,34,0.5)"};color:white;font-size:12px;font-weight:600;border:1px solid ${highlighted ? "rgba(80,240,255,0.65)" : "rgba(255,255,255,0.08)"};box-shadow:${highlighted ? "0 0 14px rgba(0,220,255,0.22)" : "none"};white-space:nowrap;">${label}</div>`,
+    iconSize: [76, 26],
+    iconAnchor: [38, 13],
   });
 }
 
@@ -202,13 +212,70 @@ export default function FarmlandMap({ plots, regionId, selectedPlotId, layers, o
   const activeProject = selectedMapItem?.type === "project" ? selectedMapItem.item : null;
 
   return (
-    <div className="relative h-[640px] overflow-hidden rounded-[2rem] border border-sky-200/18 bg-[#001b31] shadow-[0_28px_90px_rgba(0,24,45,0.34)]">
-      <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#001b31]" scrollWheelZoom>
+    <>
+      <style>{`
+        .leaflet-tooltip {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+        }
+        .leaflet-tooltip::before {
+          display: none !important;
+        }
+        .leaflet-control-zoom {
+          border: 1px solid rgba(90, 220, 220, 0.25) !important;
+          border-radius: 10px !important;
+          background: rgba(8, 42, 52, 0.9) !important;
+          backdrop-filter: blur(8px) !important;
+        }
+        .leaflet-control-zoom a {
+          width: 36px !important;
+          height: 36px !important;
+          line-height: 36px !important;
+          color: #E8FFFF !important;
+          background: rgba(8, 42, 52, 0.9) !important;
+          border-bottom: 1px solid rgba(90, 220, 220, 0.25) !important;
+          font-size: 18px !important;
+          font-weight: 600 !important;
+        }
+        .leaflet-control-zoom a:hover {
+          background: rgba(0, 130, 150, 0.78) !important;
+          color: #E8FFFF !important;
+        }
+        .leaflet-control-zoom a:first-child {
+          border-radius: 10px 10px 0 0 !important;
+        }
+        .leaflet-control-zoom a:last-child {
+          border-radius: 0 0 10px 10px !important;
+          border-bottom: none !important;
+        }
+        .leaflet-control-attribution {
+          background: rgba(5, 35, 45, 0.68) !important;
+          color: rgba(232, 255, 255, 0.6) !important;
+          border: 1px solid rgba(140, 230, 235, 0.16) !important;
+          border-radius: 8px !important;
+          padding: 4px 8px !important;
+          font-size: 11px !important;
+          backdrop-filter: blur(8px) !important;
+        }
+        .leaflet-control-attribution a {
+          color: rgba(232, 255, 255, 0.8) !important;
+        }
+        .leaflet-container {
+          background: radial-gradient(circle at center, rgba(31,150,120,0.12), transparent 45%), linear-gradient(180deg, #041E2B 0%, #031722 100%) !important;
+        }
+      `}</style>
+      <div className="relative h-[720px] overflow-hidden rounded-[20px] border-[1px] border-[rgba(80,210,220,0.22)] bg-[radial-gradient(circle_at_center,#062b3a_0%,#031926_70%)] shadow-[inset_0_0_40px_rgba(0,180,200,0.06),0_0_30px_rgba(0,180,200,0.15)]">
+      <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-[110%] w-[110%] -translate-x-[5%] -translate-y-[5%] bg-[radial-gradient(circle_at_center,rgba(31,150,120,0.12),transparent_45%),linear-gradient(180deg,#041E2B_0%,#031722_100%)] drop-shadow-[0_0_22px_rgba(55,220,180,0.22)]" scrollWheelZoom>
         <OfflineBasemap />
         <RecenterMap regionId={regionId} />
+        <FocusPlot plot={selectedPlot} />
         {layers.boundary && visibleRealBoundaries?.map((boundary) => {
           const stats = permanentHeatData[boundary.id] ?? { area: 0, avgGrade: 0, protectionRate: 0 };
           const heatColor = getGradeHeatColor(stats.avgGrade);
+          const isCountyLevel = !boundary.drillable && regionId !== "anhui";
+          const isCountyView = regionId !== "anhui" && !["hefei", "wuhu", "bengbu", "huainan", "maanshan", "huaibei", "tongling", "anqing", "huangshan", "chuzhou", "fuyang", "suzhou", "luan", "bozhou", "chizhou", "xuancheng"].includes(regionId);
           return (
             <Fragment key={boundary.id}>
               {boundary.paths.map((path, pathIndex) => (
@@ -220,30 +287,51 @@ export default function FarmlandMap({ plots, regionId, selectedPlotId, layers, o
                     weight: boundary.highlighted ? 3.2 : 1.4,
                     dashArray: undefined,
                     fillColor: heatColor,
-                    fillOpacity: isCounty ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
+                    fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
                   }}
-                  eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined}
+                  eventHandlers={{
+                    ...(isCountyView ? {} : {
+                      mouseover: (e) => {
+                        const layer = e.target;
+                        layer.setStyle({
+                          color: "#F7C948",
+                          weight: 3,
+                          fillOpacity: isCountyLevel ? 0.35 : 0.78,
+                        });
+                        layer.bringToFront();
+                      },
+                      mouseout: (e) => {
+                        const layer = e.target;
+                        layer.setStyle({
+                          color: boundary.highlighted ? "#f8fafc" : "rgba(255,255,255,.78)",
+                          weight: boundary.highlighted ? 3.2 : 1.4,
+                          fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
+                        });
+                      },
+                    }),
+                    ...(boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : {}),
+                  }}
                 >
-                  {!isCounty && (
-                    <Tooltip sticky direction="top" opacity={0.96}>
-                      <div className="min-w-40 text-sm leading-6">
-                        <div className="font-black text-[#123d2f]">{boundary.name}</div>
-                        <div>永久农田面积：{stats.area} 万亩</div>
-                        <div>平均质量等级：{stats.avgGrade.toFixed(1)} 等</div>
-                        <div>划定比例：{stats.protectionRate}%</div>
+                  {!isCountyLevel && (
+                    <Tooltip sticky direction="top" opacity={0.96} className="region-tooltip">
+                      <div className="min-w-40 rounded-lg border border-[rgba(39,215,232,0.2)] bg-[rgba(6,26,36,0.95)] p-3 text-[13px] leading-6 text-[#E8FFFF] shadow-lg backdrop-blur-sm">
+                        <div className="font-semibold text-[#EAFBFF]">{boundary.name}</div>
+                        <div className="text-[rgba(234,251,255,0.85)]">永久农田面积：{stats.area} 万亩</div>
+                        <div className="text-[rgba(234,251,255,0.85)]">平均质量等级：{stats.avgGrade.toFixed(1)} 等</div>
+                        <div className="text-[rgba(234,251,255,0.85)]">划定比例：{stats.protectionRate}%</div>
                       </div>
                     </Tooltip>
                   )}
                 </Polygon>
               ))}
-              <Marker position={getPathCenter(boundary.paths[0])} icon={createRegionLabelIcon(boundary.name)} eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined} />
+              <Marker position={getPathCenter(boundary.paths[0])} icon={createRegionLabelIcon(boundary.name, boundary.highlighted)} eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined} />
             </Fragment>
           );
         })}
         {layers.boundary && visibleFallbackBoundaries.map((boundary) => (
           <Fragment key={boundary.id}>
             <Polygon positions={boundary.path} pathOptions={{ color: "#22d3ee", weight: 2, dashArray: "8 8", fillColor: "#1e3a8a", fillOpacity: 0.08 }} eventHandlers={{ click: () => onRegionDrill(boundary.id) }} />
-            <Marker position={getPathCenter(boundary.path)} icon={createRegionLabelIcon(boundary.name)} eventHandlers={{ click: () => onRegionDrill(boundary.id) }} />
+            <Marker position={getPathCenter(boundary.path)} icon={createRegionLabelIcon(boundary.name, false)} eventHandlers={{ click: () => onRegionDrill(boundary.id) }} />
           </Fragment>
         ))}
         {layers.farmland && isCounty && plots.map((plot) => {
@@ -251,7 +339,7 @@ export default function FarmlandMap({ plots, regionId, selectedPlotId, layers, o
           return (
             <Fragment key={plot.id}>
               {plot.subPaths.map((subPath, subIndex) => {
-                const selected = selectedMapItem?.type === "plot" && selectedMapItem.item.id === plot.id && selectedMapItem.subIndex === subIndex;
+                const selected = (selectedMapItem?.type === "plot" && selectedMapItem.item.id === plot.id && selectedMapItem.subIndex === subIndex) || (activePlot?.id === plot.id && subIndex === 0);
                 return <Polygon key={`${plot.id}-${subIndex}`} positions={subPath} pathOptions={{ color: selected ? "#facc15" : "rgba(219,234,254,.72)", weight: selected ? 3 : 1, fillColor: color, fillOpacity: selected ? 0.78 : 0.58 }} eventHandlers={{ click: () => { onPlotSelect(plot); setSelectedMapItem({ type: "plot", item: plot, subIndex }); } }} />;
               })}
             </Fragment>
@@ -263,77 +351,78 @@ export default function FarmlandMap({ plots, regionId, selectedPlotId, layers, o
         })}
       </MapContainer>
       <div className="pointer-events-none absolute inset-x-0 top-0 z-[400] h-24 bg-gradient-to-b from-slate-950/32 to-transparent" />
-      <div className="absolute left-4 top-4 z-[500] rounded-2xl border border-white/18 bg-slate-950/62 px-4 py-3 text-white shadow-2xl backdrop-blur-xl">
-        <div className="text-xs font-bold text-cyan-100/65">永久基本农田质量一张图</div>
-        <div className="text-xl font-black">{getRegionName(regionId)}</div>
+      <div className="absolute left-4 top-4 z-[500] w-[280px] rounded-[10px] border border-[rgba(90,220,220,0.22)] bg-[rgba(8,42,52,0.86)] p-3 text-[#E8FFFF] shadow-2xl backdrop-blur-[8px]">
+        <div className="text-[11px] font-semibold text-[rgba(232,255,255,0.6)]">永久基本农田质量一张图</div>
+        <div className="text-base font-semibold text-[#E8FFFF]">{getRegionName(regionId)}</div>
       </div>
       {!isCounty && (
-        <div className="absolute right-5 top-20 z-[500] rounded-2xl border border-white/18 bg-slate-950/72 p-4 text-white shadow-2xl backdrop-blur-xl">
-          <div className="mb-3 text-sm font-black text-cyan-100">永久农田质量热力</div>
-          <div className="text-xs text-cyan-50/70">按平均质量等级分级设色</div>
-          <div className="mt-3 grid grid-cols-5 gap-2">
+        <div className="absolute right-5 top-20 z-[500] w-[240px] rounded-[12px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.68)] p-2.5 text-white shadow-2xl backdrop-blur-[8px]">
+          <div className="mb-1.5 text-[11px] font-semibold text-[#E8FFFF]">永久农田质量热力</div>
+          <div className="text-[10px] text-[rgba(232,255,255,0.6)]">按平均质量等级分级设色</div>
+          <div className="mt-1.5 grid grid-cols-5 gap-2">
             {["#0f766e", "#16a34a", "#22c55e", "#65a30d", "#84cc16", "#a3e635", "#facc15", "#f59e0b", "#f97316", "#ef4444"].map((color, index) => (
               <div key={color} className="flex flex-col items-center gap-1">
-                <span className="h-4 w-4 rounded" style={{ backgroundColor: color }} />
-                <span className="text-xs text-cyan-50">{index + 1}等</span>
+                <span className="h-3 w-3 rounded" style={{ backgroundColor: color }} />
+                <span className="text-[10px] text-[#E8FFFF]">{index + 1}等</span>
               </div>
             ))}
           </div>
         </div>
       )}
-      <div className="absolute bottom-5 left-5 z-[500] w-56 rounded-3xl border border-white/18 bg-slate-950/68 p-4 text-white shadow-2xl backdrop-blur-xl">
-        <div className="mb-3 flex items-center gap-2 text-sm font-black"><Layers className="h-4 w-4 text-cyan-200" />图层控制</div>
+      <div className="absolute bottom-5 left-5 z-[500] w-[240px] rounded-[12px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.72)] p-2.5 text-white shadow-2xl backdrop-blur-[8px]">
+        <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-[#E8FFFF]"><Layers className="h-3 w-3 text-[rgba(232,255,255,0.5)]" />图层控制</div>
         {[
           ["farmland", "永久农田地块"],
           ["highStandard", "高标田项目范围"],
           ["boundary", "行政区边界"],
         ].map(([key, label]) => (
-          <label key={key} className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-white/10 px-3 py-2 text-xs text-cyan-50/88">
-            <span className="flex items-center gap-2"><LocateFixed className="h-4 w-4 text-cyan-200" />{label}</span>
-            <input checked={layers[key as keyof LayerState]} onChange={(event) => onLayersChange({ ...layers, [key]: event.target.checked })} type="checkbox" className="accent-cyan-300" />
+          <label key={key} className="mt-1 flex items-center justify-between gap-3 rounded-[8px] bg-[rgba(255,255,255,0.04)] px-2.5 py-1.5 text-[11px] text-[#E8FFFF]">
+            <span className="flex items-center gap-2"><LocateFixed className="h-3 w-3 text-[rgba(232,255,255,0.5)]" />{label}</span>
+            <input checked={layers[key as keyof LayerState]} onChange={(event) => onLayersChange({ ...layers, [key]: event.target.checked })} type="checkbox" className="h-3.5 w-3.5 accent-[rgba(0,180,200,0.9)]" />
           </label>
         ))}
       </div>
       {activePlot && !activeProject && (
-        <div className="absolute right-5 top-20 z-[500] w-[330px] rounded-3xl border border-white/80 bg-white p-5 text-slate-800 shadow-2xl shadow-emerald-950/25">
+        <div className="absolute right-5 top-20 z-[500] w-[340px] rounded-[14px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.72)] p-4 text-[#E8FFFF] shadow-2xl backdrop-blur-[8px]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black text-cyan-700">永久农田地块详情</p>
-              <h3 className="mt-1 text-lg font-black text-[#123d2f]">{activePlot.blockNo}</h3>
+              <p className="text-[11px] font-semibold text-[rgba(232,255,255,0.6)]">永久农田地块详情</p>
+              <h3 className="mt-1 text-base font-semibold text-[#E8FFFF]">{activePlot.blockNo}</h3>
             </div>
-            <button onClick={() => { setSelectedMapItem(null); onPlotSelect(null); }} className="text-xl text-slate-400 hover:text-slate-700">×</button>
+            <button onClick={() => { setSelectedMapItem(null); onPlotSelect(null); }} className="text-xl text-[rgba(232,255,255,0.6)] hover:text-[#E8FFFF]">×</button>
           </div>
-          <div className="mt-4 text-sm leading-7">行政区：{activePlot.city}{activePlot.county}{activePlot.town}<br />面积：{activePlot.area} 亩<br />地块等级：{activePlot.qualityLevel} 等<br />耕地类型：{activePlot.landType}<br />档案状态：{activePlot.archiveStatus}</div>
+          <div className="mt-3 text-[13px] leading-6">行政区：{activePlot.city}{activePlot.county}{activePlot.town}<br />面积：{activePlot.area} 亩<br />地块等级：{activePlot.qualityLevel} 等<br />耕地类型：{activePlot.landType}<br />档案状态：{activePlot.archiveStatus}</div>
           <div className="mt-4 grid grid-cols-2 gap-2">
-            <button onClick={() => onOpenDetail(activePlot)} className="rounded-2xl bg-[#123d2f] px-4 py-3 text-xs font-black text-white">查看完整档案</button>
-            <button onClick={() => onLocateArchive(activePlot)} className="rounded-2xl bg-cyan-50 px-4 py-3 text-xs font-black text-cyan-700">定位档案库</button>
+            <button onClick={() => onOpenDetail(activePlot)} className="rounded-[10px] bg-[rgba(0,130,150,0.78)] px-4 py-2 text-[13px] font-semibold text-[#E8FFFF] shadow-lg border border-[rgba(80,240,255,0.65)] hover:bg-[rgba(0,150,170,0.85)]">查看完整档案</button>
+            <button onClick={() => onLocateArchive(activePlot)} className="rounded-[10px] bg-[rgba(255,255,255,0.08)] px-4 py-2 text-[13px] font-semibold text-[#E8FFFF] border border-[rgba(140,230,235,0.25)] hover:bg-[rgba(255,255,255,0.15)]">定位档案库</button>
           </div>
         </div>
       )}
       {activeProject && (
-        <div className="absolute right-5 top-20 z-[500] w-[350px] rounded-3xl border border-white/80 bg-white p-5 text-slate-800 shadow-2xl shadow-emerald-950/25">
+        <div className="absolute right-5 top-20 z-[500] w-[350px] rounded-[14px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.72)] p-4 text-[#E8FFFF] shadow-2xl backdrop-blur-[8px]">
           <div className="flex items-start justify-between gap-4">
             <div>
-              <p className="text-xs font-black text-sky-700">高标田项目范围详情</p>
-              <h3 className="mt-1 text-lg font-black text-[#123d2f]">{activeProject.name}</h3>
+              <p className="text-[11px] font-semibold text-[rgba(232,255,255,0.6)]">高标田项目范围详情</p>
+              <h3 className="mt-1 text-base font-semibold text-[#E8FFFF]">{activeProject.name}</h3>
             </div>
-            <button onClick={() => setSelectedMapItem(null)} className="text-xl text-slate-400 hover:text-slate-700">×</button>
+            <button onClick={() => setSelectedMapItem(null)} className="text-xl text-[rgba(232,255,255,0.6)] hover:text-[#E8FFFF]">×</button>
           </div>
-          <div className="mt-4 grid grid-cols-2 gap-3 text-sm">
-            <div className="rounded-2xl bg-sky-50 p-3"><b>关联地块</b><br />{activeProject.plots.length} 个</div>
-            <div className="rounded-2xl bg-sky-50 p-3"><b>建设面积</b><br />{activeProject.plots.reduce((sum, plot) => sum + plot.area, 0).toFixed(1)} 亩</div>
-            <div className="rounded-2xl bg-emerald-50 p-3"><b>平均等级</b><br />{(activeProject.plots.reduce((sum, plot) => sum + plot.qualityLevel, 0) / activeProject.plots.length).toFixed(1)} 等</div>
-            <div className="rounded-2xl bg-amber-50 p-3"><b>建设状态</b><br />已建高标田</div>
+          <div className="mt-3 grid grid-cols-2 gap-3 text-[13px]">
+            <div className="rounded-[10px] bg-[rgba(255,255,255,0.06)] p-3"><b>关联地块</b><br />{activeProject.plots.length} 个</div>
+            <div className="rounded-[10px] bg-[rgba(255,255,255,0.06)] p-3"><b>建设面积</b><br />{activeProject.plots.reduce((sum, plot) => sum + plot.area, 0).toFixed(1)} 亩</div>
+            <div className="rounded-[10px] bg-[rgba(255,255,255,0.06)] p-3"><b>平均等级</b><br />{(activeProject.plots.reduce((sum, plot) => sum + plot.qualityLevel, 0) / activeProject.plots.length).toFixed(1)} 等</div>
+            <div className="rounded-[10px] bg-[rgba(255,255,255,0.06)] p-3"><b>建设状态</b><br />已建高标田</div>
           </div>
-          <div className="mt-4 rounded-2xl bg-slate-50 p-3 text-xs font-bold leading-6 text-slate-500">虚线边界表示高标田项目范围，内部彩色面表示永久基本农田地块等级。</div>
+          <div className="mt-4 rounded-[10px] bg-[rgba(255,255,255,0.06)] p-3 text-[11px] font-semibold leading-6 text-[rgba(232,255,255,0.7)]">虚线边界表示高标田项目范围，内部彩色面表示永久基本农田地块等级。</div>
         </div>
       )}
-      <div className="absolute bottom-5 right-5 z-[500] rounded-2xl border border-white/18 bg-slate-950/62 p-4 text-xs text-cyan-50 shadow-2xl backdrop-blur-xl">
-        <div className="mb-3 font-black text-cyan-100">地块等级色表</div>
+      <div className="absolute bottom-5 right-5 z-[500] rounded-[12px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.72)] p-3 text-[11px] text-[#E8FFFF] shadow-2xl backdrop-blur-[8px]">
+        <div className="mb-2 font-semibold text-[#E8FFFF]">地块等级色表</div>
         <div className="grid grid-cols-5 gap-2">
           {gradePalette.map((color, index) => <div key={color} className="flex items-center gap-1"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} /><span>{index + 1}等</span></div>)}
         </div>
       </div>
     </div>
+    </>
   );
 }

@@ -54,7 +54,11 @@ const regionView: Record<string, { center: LatLngExpression; zoom: number; bound
 };
 
 const supplementaryHeatData: Record<string, SupplementaryHeatStats> = {
-  hefei: { projectCount: 6, area: 2.8, avgGrade: 5.2 },
+  // 安徽省汇总数据（基于真实数据统计）
+  anhui: { projectCount: 117, area: 177.8, avgGrade: 4.0 },
+
+  // 各市数据（只有合肥市有真实数据，其他市为假数据）
+  hefei: { projectCount: 117, area: 177.8, avgGrade: 4.0 },
   wuhu: { projectCount: 4, area: 1.9, avgGrade: 5.8 },
   bengbu: { projectCount: 5, area: 2.4, avgGrade: 5.5 },
   huainan: { projectCount: 3, area: 1.5, avgGrade: 6.1 },
@@ -70,15 +74,17 @@ const supplementaryHeatData: Record<string, SupplementaryHeatStats> = {
   bozhou: { projectCount: 6, area: 2.9, avgGrade: 5.1 },
   chizhou: { projectCount: 2, area: 1.1, avgGrade: 6.5 },
   xuancheng: { projectCount: 3, area: 1.6, avgGrade: 6.0 },
+
+  // 合肥市各区县数据（只有肥西县有真实数据，其他区县为假数据）
   yaohai: { projectCount: 1, area: 0.5, avgGrade: 6.2 },
   luyang: { projectCount: 2, area: 0.9, avgGrade: 5.8 },
   shushan: { projectCount: 3, area: 1.3, avgGrade: 5.5 },
   baohe: { projectCount: 2, area: 0.8, avgGrade: 5.9 },
   changfeng: { projectCount: 4, area: 1.8, avgGrade: 5.2 },
   feidong: { projectCount: 5, area: 2.2, avgGrade: 5.0 },
-  feixi: { projectCount: 6, area: 2.6, avgGrade: 4.8 },
-  lujian: { projectCount: 3, area: 1.4, avgGrade: 5.4 },
-  chaohu: { projectCount: 4, area: 1.9, avgGrade: 5.1 },
+  feixi: { projectCount: 117, area: 177.8, avgGrade: 4.0 },
+  lujian: { projectCount: 0, area: 0, avgGrade: 0 },
+  chaohu: { projectCount: 0, area: 0, avgGrade: 0 },
 };
 
 const supplementaryHeatLegends: Record<SupplementaryHeatMode, Array<{ label: string; color: string }>> = {
@@ -156,9 +162,9 @@ function FocusParcel({ parcel }: { parcel?: SupplementaryParcel | null }) {
 function createRegionLabelIcon(label: string, highlighted: boolean) {
   return L.divIcon({
     className: "",
-    html: `<div style="min-width:72px;text-align:center;border-radius:999px;padding:7px 12px;background:${highlighted ? "rgba(0,27,49,.9)" : "rgba(0,27,49,.66)"};color:white;font-size:12px;font-weight:900;border:1px solid ${highlighted ? "rgba(185,213,235,.86)" : "rgba(111,150,182,.48)"};box-shadow:${highlighted ? "0 12px 30px rgba(127,160,189,.28)" : "0 8px 18px rgba(0,27,49,.2)"};white-space:nowrap;">${label}</div>`,
-    iconSize: [88, 30],
-    iconAnchor: [44, 15],
+    html: `<div style="min-width:60px;text-align:center;border-radius:14px;padding:4px 12px;background:${highlighted ? "rgba(0,130,150,0.78)" : "rgba(10,32,34,0.5)"};color:white;font-size:12px;font-weight:600;border:1px solid ${highlighted ? "rgba(80,240,255,0.65)" : "rgba(255,255,255,0.08)"};box-shadow:${highlighted ? "0 0 14px rgba(0,220,255,0.22)" : "none"};white-space:nowrap;">${label}</div>`,
+    iconSize: [76, 26],
+    iconAnchor: [38, 13],
   });
 }
 
@@ -182,23 +188,20 @@ function RegionCascade({ regionId, onRegionChange }: { regionId: string; onRegio
   const countyOptions = chain.cityId === "hefei" ? supervisionRegions.filter((region) => region.id === "feixi") : [];
 
   return (
-    <div className="absolute left-4 top-4 z-[500] rounded-2xl border border-sky-200/24 bg-[#001b31]/86 p-3 text-sky-50 shadow-2xl shadow-sky-950/40 backdrop-blur-xl">
-      <div className="mb-2 flex items-center justify-between gap-5">
-        <div>
-          <p className="text-xs font-black text-sky-200/70">行政区联动定位</p>
-          <p className="text-sm font-black text-white">当前：{getSupervisionRegionName(regionId)}</p>
-        </div>
-        {regionId !== "anhui" && <button onClick={() => onRegionChange(getSupervisionParentRegion(regionId))} className="rounded-full bg-sky-500/16 px-3 py-1 text-xs font-black text-sky-100">返回上级</button>}
+    <div className="absolute left-4 top-4 z-[500] w-[280px] rounded-[10px] border border-[rgba(90,220,220,0.22)] bg-[rgba(8,42,52,0.86)] p-3 text-[#E8FFFF] shadow-2xl backdrop-blur-[8px]">
+      <div className="mb-2 flex items-center justify-between gap-3">
+        <p className="text-[11px] font-semibold text-[#E8FFFF]">行政区联动定位｜当前：{getSupervisionRegionName(regionId)}</p>
+        {regionId !== "anhui" && <button onClick={() => onRegionChange(getSupervisionParentRegion(regionId))} className="shrink-0 rounded-full bg-[rgba(0,130,150,0.78)] px-2 py-0.5 text-[10px] font-semibold text-[#E8FFFF] border border-[rgba(80,240,255,0.65)]">返回上级</button>}
       </div>
       <div className="grid grid-cols-3 gap-2">
-        <select value={chain.provinceId} onChange={(event) => onRegionChange(event.target.value)} className="h-10 rounded-xl border border-sky-200/20 bg-sky-100/95 px-3 text-xs font-black text-[#001b31] outline-none">
+        <select value={chain.provinceId} onChange={(event) => onRegionChange(event.target.value)} className="h-8 rounded-[8px] border border-[rgba(90,220,220,0.22)] bg-[rgba(8,42,52,0.9)] px-2 text-[11px] font-semibold text-[#E8FFFF] outline-none">
           <option value="anhui">安徽省</option>
         </select>
-        <select value={chain.cityId} onChange={(event) => onRegionChange(event.target.value || "anhui")} className="h-10 rounded-xl border border-sky-200/20 bg-sky-100/95 px-3 text-xs font-black text-[#001b31] outline-none">
+        <select value={chain.cityId} onChange={(event) => onRegionChange(event.target.value || "anhui")} className="h-8 rounded-[8px] border border-[rgba(90,220,220,0.22)] bg-[rgba(8,42,52,0.9)] px-2 text-[11px] font-semibold text-[#E8FFFF] outline-none">
           <option value="">全部市</option>
           {cityOptions.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}
         </select>
-        <select value={chain.countyId} onChange={(event) => onRegionChange(event.target.value || chain.cityId || "anhui")} className="h-10 rounded-xl border border-sky-200/20 bg-sky-100/95 px-3 text-xs font-black text-[#001b31] outline-none">
+        <select value={chain.countyId} onChange={(event) => onRegionChange(event.target.value || chain.cityId || "anhui")} className="h-8 rounded-[8px] border border-[rgba(90,220,220,0.22)] bg-[rgba(8,42,52,0.9)] px-2 text-[11px] font-semibold text-[#E8FFFF] outline-none">
           <option value="">全部区县</option>
           {countyOptions.map((region) => <option key={region.id} value={region.id}>{region.name}</option>)}
         </select>
@@ -279,8 +282,62 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedParcel
   const projectBoundaries = useMemo(() => buildProjectBoundaries(parcels), [parcels]);
 
   return (
-    <div className="relative h-[720px] overflow-hidden rounded-[2.2rem] border border-sky-200/18 bg-[#001b31] shadow-[0_28px_90px_rgba(0,24,45,0.34)]">
-      <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-full w-full bg-[#001b31]" scrollWheelZoom>
+    <>
+      <style>{`
+        .leaflet-tooltip {
+          background: transparent !important;
+          border: none !important;
+          box-shadow: none !important;
+          padding: 0 !important;
+        }
+        .leaflet-tooltip::before {
+          display: none !important;
+        }
+        .leaflet-control-zoom {
+          border: 1px solid rgba(90, 220, 220, 0.25) !important;
+          border-radius: 10px !important;
+          background: rgba(8, 42, 52, 0.9) !important;
+          backdrop-filter: blur(8px) !important;
+        }
+        .leaflet-control-zoom a {
+          width: 36px !important;
+          height: 36px !important;
+          line-height: 36px !important;
+          color: #E8FFFF !important;
+          background: rgba(8, 42, 52, 0.9) !important;
+          border-bottom: 1px solid rgba(90, 220, 220, 0.25) !important;
+          font-size: 18px !important;
+          font-weight: 600 !important;
+        }
+        .leaflet-control-zoom a:hover {
+          background: rgba(0, 130, 150, 0.78) !important;
+          color: #E8FFFF !important;
+        }
+        .leaflet-control-zoom a:first-child {
+          border-radius: 10px 10px 0 0 !important;
+        }
+        .leaflet-control-zoom a:last-child {
+          border-radius: 0 0 10px 10px !important;
+          border-bottom: none !important;
+        }
+        .leaflet-control-attribution {
+          background: rgba(5, 35, 45, 0.68) !important;
+          color: rgba(232, 255, 255, 0.6) !important;
+          border: 1px solid rgba(140, 230, 235, 0.16) !important;
+          border-radius: 8px !important;
+          padding: 4px 8px !important;
+          font-size: 11px !important;
+          backdrop-filter: blur(8px) !important;
+        }
+        .leaflet-control-attribution a {
+          color: rgba(232, 255, 255, 0.8) !important;
+        }
+        .leaflet-container {
+          background: radial-gradient(circle at center, rgba(31,150,120,0.12), transparent 45%), linear-gradient(180deg, #041E2B 0%, #031722 100%) !important;
+        }
+      `}</style>
+      <div className="relative h-[720px] overflow-hidden rounded-[20px] border-[1px] border-[rgba(80,210,220,0.22)] bg-[radial-gradient(circle_at_center,#062b3a_0%,#031926_70%)] shadow-[inset_0_0_40px_rgba(0,180,200,0.06),0_0_30px_rgba(0,180,200,0.15)]">
+      <MapContainer center={regionView[regionId]?.center ?? regionView.anhui.center} zoom={regionView[regionId]?.zoom ?? 7} minZoom={6} maxZoom={17} maxBounds={mapBounds} className="h-[110%] w-[110%] -translate-x-[5%] -translate-y-[5%] bg-[radial-gradient(circle_at_center,rgba(31,150,120,0.12),transparent_45%),linear-gradient(180deg,#041E2B_0%,#031722_100%)] drop-shadow-[0_0_22px_rgba(55,220,180,0.22)]" scrollWheelZoom>
         <OfflineBasemap />
         <RecenterMap regionId={regionId} />
         <FocusParcel parcel={selectedParcel} />
@@ -289,6 +346,7 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedParcel
           const heatValue = getSupplementaryHeatValue(stats, heatMode);
           const heatColor = getSupplementaryHeatColor(heatValue, heatMode);
           const isCountyLevel = !boundary.drillable && regionId !== "anhui";
+          const isCountyView = regionId !== "anhui" && !["hefei", "wuhu", "bengbu", "huainan", "maanshan", "huaibei", "tongling", "anqing", "huangshan", "chuzhou", "fuyang", "suzhou", "luan", "bozhou", "chizhou", "xuancheng"].includes(regionId);
           return (
             <Fragment key={boundary.id}>
               {boundary.paths.map((path, pathIndex) => (
@@ -302,15 +360,36 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedParcel
                     fillColor: heatColor,
                     fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
                   }}
-                  eventHandlers={boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : undefined}
+                  eventHandlers={{
+                    ...(isCountyView ? {} : {
+                      mouseover: (e) => {
+                        const layer = e.target;
+                        layer.setStyle({
+                          color: "#F7C948",
+                          weight: 3,
+                          fillOpacity: isCountyLevel ? 0.35 : 0.78,
+                        });
+                        layer.bringToFront();
+                      },
+                      mouseout: (e) => {
+                        const layer = e.target;
+                        layer.setStyle({
+                          color: boundary.highlighted ? "#f8fafc" : "rgba(255,255,255,.78)",
+                          weight: boundary.highlighted ? 3.2 : 1.4,
+                          fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
+                        });
+                      },
+                    }),
+                    ...(boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : {}),
+                  }}
                 >
                   {!isCountyLevel && (
-                    <Tooltip sticky direction="top" opacity={0.96}>
-                      <div className="min-w-40 text-sm leading-6">
-                        <div className="font-black text-[#123d2f]">{boundary.name}</div>
-                        <div>补充耕地项目：{stats.projectCount} 个</div>
-                        <div>验收面积：{stats.area.toFixed(1)} 万亩</div>
-                        <div>平均等级：{stats.avgGrade.toFixed(1)} 等</div>
+                    <Tooltip sticky direction="top" opacity={0.96} className="region-tooltip">
+                      <div className="min-w-40 rounded-lg border border-[rgba(39,215,232,0.2)] bg-[rgba(6,26,36,0.95)] p-3 text-[13px] leading-6 text-[#E8FFFF] shadow-lg backdrop-blur-sm">
+                        <div className="font-semibold text-[#EAFBFF]">{boundary.name}</div>
+                        <div className="text-[rgba(234,251,255,0.85)]">补充耕地项目：{stats.projectCount} 个</div>
+                        <div className="text-[rgba(234,251,255,0.85)]">验收面积：{stats.area.toFixed(1)} 万亩</div>
+                        <div className="text-[rgba(234,251,255,0.85)]">平均等级：{stats.avgGrade.toFixed(1)} 等</div>
                       </div>
                     </Tooltip>
                   )}
@@ -339,51 +418,52 @@ export default function SupplementaryLandMap({ parcels, regionId, selectedParcel
         ))}
       </MapContainer>
       <RegionCascade regionId={regionId} onRegionChange={onRegionDrill} />
-      <div className="pointer-events-none absolute inset-x-0 top-0 z-[400] h-24 bg-gradient-to-b from-[#001b31]/54 to-transparent" />
+      <div className="pointer-events-none absolute inset-x-0 top-0 z-[400] h-24 bg-gradient-to-b from-slate-950/32 to-transparent" />
       {regionId !== "feixi" && (
-        <div className="absolute right-5 top-20 z-[500] rounded-2xl border border-white/18 bg-slate-950/72 p-4 text-white shadow-2xl backdrop-blur-xl">
-          <div className="mb-3 text-sm font-black text-cyan-100">补充耕地热力</div>
-          <div className="mb-3 flex gap-2">
+        <div className="absolute right-5 top-20 z-[500] w-[240px] rounded-[12px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.68)] p-2.5 text-white shadow-2xl backdrop-blur-[8px]">
+          <div className="mb-1.5 text-[11px] font-semibold text-[#E8FFFF]">补充耕地热力</div>
+          <div className="mb-2 flex gap-2">
             <button
               onClick={() => setHeatMode("projectCount")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${heatMode === "projectCount" ? "bg-cyan-500 text-white" : "bg-white/10 text-cyan-100 hover:bg-white/20"}`}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all ${heatMode === "projectCount" ? "bg-[rgba(0,130,150,0.78)] text-[#E8FFFF] border border-[rgba(80,240,255,0.65)]" : "bg-[rgba(255,255,255,0.06)] text-[#E8FFFF] hover:bg-[rgba(255,255,255,0.12)]"}`}
             >
               项目数量
             </button>
             <button
               onClick={() => setHeatMode("acceptanceArea")}
-              className={`rounded-lg px-3 py-1.5 text-xs font-black transition-all ${heatMode === "acceptanceArea" ? "bg-cyan-500 text-white" : "bg-white/10 text-cyan-100 hover:bg-white/20"}`}
+              className={`rounded-lg px-2.5 py-1 text-[11px] font-semibold transition-all ${heatMode === "acceptanceArea" ? "bg-[rgba(0,130,150,0.78)] text-[#E8FFFF] border border-[rgba(80,240,255,0.65)]" : "bg-[rgba(255,255,255,0.06)] text-[#E8FFFF] hover:bg-[rgba(255,255,255,0.12)]"}`}
             >
               验收面积
             </button>
           </div>
-          <div className="text-xs text-cyan-50/70">{heatMode === "projectCount" ? "按项目数量分级设色" : "按验收面积分级设色"}</div>
-          <div className="mt-3 space-y-2">
+          <div className="text-[10px] text-[rgba(232,255,255,0.6)]">{heatMode === "projectCount" ? "按项目数量分级设色" : "按验收面积分级设色"}</div>
+          <div className="mt-1.5 space-y-1">
             {supplementaryHeatLegends[heatMode].map((item) => (
-              <div key={item.label} className="flex items-center gap-2">
-                <span className="h-4 w-4 rounded" style={{ backgroundColor: item.color }} />
-                <span className="text-xs text-cyan-50">{item.label}</span>
+              <div key={item.label} className="flex items-center gap-1.5">
+                <span className="h-3 w-3 rounded" style={{ backgroundColor: item.color }} />
+                <span className="text-[10px] text-[#E8FFFF]">{item.label}</span>
               </div>
             ))}
           </div>
         </div>
       )}
-      <div className="absolute bottom-5 left-5 z-[500] w-56 rounded-3xl border border-sky-200/18 bg-[#001b31]/72 p-4 text-white shadow-2xl backdrop-blur-xl">
-        <div className="mb-3 flex items-center gap-2 text-sm font-black"><Layers className="h-4 w-4 text-sky-200" />图层控制</div>
+      <div className="absolute bottom-5 left-5 z-[500] w-[240px] rounded-[12px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.72)] p-2.5 text-white shadow-2xl backdrop-blur-[8px]">
+        <div className="mb-1.5 flex items-center gap-2 text-[11px] font-semibold text-[#E8FFFF]"><Layers className="h-3 w-3 text-[rgba(232,255,255,0.5)]" />图层控制</div>
         {layerRows().map(([key, label, Icon]) => (
-          <label key={key} className="mt-2 flex items-center justify-between gap-3 rounded-xl bg-sky-100/10 px-3 py-2 text-xs text-sky-50/88">
-            <span className="flex items-center gap-2"><Icon className="h-4 w-4 text-sky-200" />{label}</span>
-            <input checked={layers[key]} onChange={(event) => onLayersChange({ ...layers, [key]: event.target.checked })} type="checkbox" className="accent-sky-300" />
+          <label key={key} className="mt-1 flex items-center justify-between gap-3 rounded-[8px] bg-[rgba(255,255,255,0.04)] px-2.5 py-1.5 text-[11px] text-[#E8FFFF]">
+            <span className="flex items-center gap-2"><Icon className="h-3 w-3 text-[rgba(232,255,255,0.5)]" />{label}</span>
+            <input checked={layers[key]} onChange={(event) => onLayersChange({ ...layers, [key]: event.target.checked })} type="checkbox" className="h-3.5 w-3.5 accent-[rgba(0,180,200,0.9)]" />
           </label>
         ))}
       </div>
-      <div className="absolute bottom-5 right-5 z-[500] rounded-2xl border border-sky-200/18 bg-[#001b31]/72 p-4 text-xs text-sky-50 shadow-2xl backdrop-blur-xl">
-        <div className="mb-3 font-black text-sky-100">地块颜色说明</div>
+      <div className="absolute bottom-5 right-5 z-[500] rounded-[12px] border border-[rgba(140,230,235,0.18)] bg-[rgba(5,35,45,0.72)] p-3 text-[11px] text-[#E8FFFF] shadow-2xl backdrop-blur-[8px]">
+        <div className="mb-2 font-semibold text-[#E8FFFF]">地块颜色说明</div>
         <div className="grid grid-cols-4 gap-2">
           {gradePalette.map((color, index) => <div key={color} className="flex items-center gap-1"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: color }} /><span>{index + 1}等</span></div>)}
           <div className="col-span-2 flex items-center gap-1"><span className="h-3 w-3 rounded-sm" style={{ backgroundColor: acceptanceColor }} /><span>验收中</span></div>
         </div>
       </div>
     </div>
+    </>
   );
 }
