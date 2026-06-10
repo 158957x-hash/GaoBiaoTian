@@ -343,6 +343,7 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
           const heatValue = getHeatValue(stats, heatMode);
           const heatColor = getHeatColor(heatValue, heatMode);
           const isCountyLevel = !boundary.drillable && regionId !== "anhui";
+          const isCountyView = regionId !== "anhui" && !["hefei", "wuhu", "bengbu", "huainan", "maanshan", "huaibei", "tongling", "anqing", "huangshan", "chuzhou", "fuyang", "suzhou", "luan", "bozhou", "chizhou", "xuancheng"].includes(regionId);
           return (
             <Fragment key={boundary.id}>
               {boundary.paths.map((path, pathIndex) => (
@@ -357,23 +358,25 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
                     fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
                   }}
                   eventHandlers={{
-                    mouseover: (e) => {
-                      const layer = e.target;
-                      layer.setStyle({
-                        color: "#F7C948",
-                        weight: 3,
-                        fillOpacity: isCountyLevel ? 0.35 : 0.78,
-                      });
-                      layer.bringToFront();
-                    },
-                    mouseout: (e) => {
-                      const layer = e.target;
-                      layer.setStyle({
-                        color: boundary.highlighted ? "#f8fafc" : "rgba(255,255,255,.78)",
-                        weight: boundary.highlighted ? 3.2 : 1.4,
-                        fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
-                      });
-                    },
+                    ...(isCountyView ? {} : {
+                      mouseover: (e) => {
+                        const layer = e.target;
+                        layer.setStyle({
+                          color: "#F7C948",
+                          weight: 3,
+                          fillOpacity: isCountyLevel ? 0.35 : 0.78,
+                        });
+                        layer.bringToFront();
+                      },
+                      mouseout: (e) => {
+                        const layer = e.target;
+                        layer.setStyle({
+                          color: boundary.highlighted ? "#f8fafc" : "rgba(255,255,255,.78)",
+                          weight: boundary.highlighted ? 3.2 : 1.4,
+                          fillOpacity: isCountyLevel ? (boundary.highlighted ? 0.2 : 0.08) : 0.68,
+                        });
+                      },
+                    }),
                     ...(boundary.drillable ? { click: () => onRegionDrill(boundary.id) } : {}),
                   }}
                 >
