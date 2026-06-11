@@ -157,19 +157,20 @@ function createRegionLabelIcon(label: string, highlighted: boolean) {
 }
 
 function createDivIcon(color: string, label: string, shape: "facility" | "camera" | "moisture" | "insect" | "weather") {
+  const baseUrl = import.meta.env.BASE_URL;
   const iconMap: Record<string, string> = {
-    facility: "/facility.png",
-    camera: "/camera.png",
-    moisture: "/moisture.png",
-    insect: "/insect.png",
-    weather: "/weather.png",
+    facility: `${baseUrl}facility.png`,
+    camera: `${baseUrl}camera.png`,
+    moisture: `${baseUrl}moisture.png`,
+    insect: `${baseUrl}insect.png`,
+    weather: `${baseUrl}weather.png`,
   };
   const iconSrc = iconMap[shape];
   return L.divIcon({
-    className: "",
-    html: `<div title="${label}" style="width:34px;height:34px;border-radius:12px;background:${color};border:3px solid #fff;box-shadow:0 8px 24px rgba(15,23,42,.35);display:grid;place-items:center;overflow:hidden;"><img src="${iconSrc}" style="width:20px;height:20px;object-fit:contain;" /></div>`,
-    iconSize: [34, 34],
-    iconAnchor: [17, 17],
+    className: "supervision-device-icon",
+    html: `<img src="${iconSrc}" alt="${label}" title="${label}" style="display:block;width:36px;height:36px;object-fit:contain;filter:drop-shadow(0 4px 8px rgba(0,0,0,0.35));" />`,
+    iconSize: [36, 36],
+    iconAnchor: [18, 18],
   });
 }
 
@@ -287,6 +288,14 @@ export default function SupervisionGisMap({ projects, regionId, selectedProjectI
         }
         .leaflet-tooltip::before {
           display: none !important;
+        }
+        .supervision-device-icon {
+          background: transparent !important;
+          border: none !important;
+        }
+        .supervision-device-icon img {
+          background: transparent !important;
+          border: none !important;
         }
         .leaflet-control-zoom {
           border: 1px solid rgba(90, 220, 220, 0.25) !important;
