@@ -157,18 +157,17 @@ function createRegionLabelIcon(label: string, highlighted: boolean) {
 }
 
 function createDivIcon(color: string, label: string, shape: "facility" | "camera" | "moisture" | "insect" | "weather") {
-  const shapeHtml = shape === "facility"
-    ? `<span style="display:block;width:15px;height:15px;border:2px solid #fff;border-radius:4px;position:relative;"><i style="position:absolute;left:3px;right:3px;bottom:-6px;height:6px;background:#fff;border-radius:2px;"></i></span>`
-    : shape === "camera"
-      ? `<span style="display:block;width:16px;height:11px;border:2px solid #fff;border-radius:3px;position:relative;"><i style="position:absolute;right:-6px;top:2px;border-left:6px solid #fff;border-top:3px solid transparent;border-bottom:3px solid transparent;"></i></span>`
-      : shape === "moisture"
-        ? `<span style="display:block;width:12px;height:17px;background:#fff;border-radius:9px 9px 11px 11px;transform:rotate(18deg);"></span>`
-        : shape === "weather"
-          ? `<span style="display:block;width:16px;height:16px;border-radius:50%;background:#fff;position:relative;"><i style="position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:6px;height:6px;background:${color};border-radius:50%;"></i><i style="position:absolute;left:50%;top:-2px;width:2px;height:6px;background:#fff;transform:translateX(-50%);"></i><i style="position:absolute;left:50%;bottom:-2px;width:2px;height:6px;background:#fff;transform:translateX(-50%);"></i><i style="position:absolute;top:50%;left:-2px;width:6px;height:2px;background:#fff;transform:translateY(-50%);"></i><i style="position:absolute;top:50%;right:-2px;width:6px;height:2px;background:#fff;transform:translateY(-50%);"></i></span>`
-          : `<span style="display:block;width:16px;height:12px;border:2px solid #fff;border-radius:50%;position:relative;"><i style="position:absolute;left:-5px;top:4px;width:4px;height:2px;background:#fff;"></i><i style="position:absolute;right:-5px;top:4px;width:4px;height:2px;background:#fff;"></i></span>`;
+  const iconMap: Record<string, string> = {
+    facility: "/facility.png",
+    camera: "/camera.png",
+    moisture: "/moisture.png",
+    insect: "/insect.png",
+    weather: "/weather.png",
+  };
+  const iconSrc = iconMap[shape];
   return L.divIcon({
     className: "",
-    html: `<div title="${label}" style="width:34px;height:34px;border-radius:12px;background:${color};border:3px solid #fff;box-shadow:0 8px 24px rgba(15,23,42,.35);display:grid;place-items:center;">${shapeHtml}</div>`,
+    html: `<div title="${label}" style="width:34px;height:34px;border-radius:12px;background:${color};border:3px solid #fff;box-shadow:0 8px 24px rgba(15,23,42,.35);display:grid;place-items:center;overflow:hidden;"><img src="${iconSrc}" style="width:20px;height:20px;object-fit:contain;" /></div>`,
     iconSize: [34, 34],
     iconAnchor: [17, 17],
   });
