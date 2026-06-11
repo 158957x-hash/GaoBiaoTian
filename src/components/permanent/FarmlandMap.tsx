@@ -1,5 +1,5 @@
 import { Fragment, useEffect, useMemo, useState } from "react";
-import { MapContainer, Marker, Polygon, Tooltip, useMap } from "react-leaflet";
+import { MapContainer, Marker, Polygon, TileLayer, Tooltip, useMap } from "react-leaflet";
 import L, { type LatLngBoundsExpression, type LatLngExpression } from "leaflet";
 import { Layers, LocateFixed } from "lucide-react";
 import { realSupervisionBoundaries } from "@/data/supervisionGeoBoundaries";
@@ -107,8 +107,24 @@ const boundaryPolygons: Record<string, Array<{ id: string; name: string; path: L
 
 const gradePalette = ["#0f766e", "#16a34a", "#22c55e", "#65a30d", "#84cc16", "#a3e635", "#facc15", "#f59e0b", "#f97316", "#ef4444"];
 
+const TIANDITU_TOKEN = "685821b861c26919e7194de5f2e0f876";
+const TIANDITU_SUBDOMAINS = ["0", "1", "2", "3", "4", "5", "6", "7"];
+
 function OfflineBasemap() {
-  return null;
+  return (
+    <>
+      <TileLayer
+        url={`https://t{s}.tianditu.gov.cn/img_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=img&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${TIANDITU_TOKEN}`}
+        subdomains={TIANDITU_SUBDOMAINS}
+        zIndex={1}
+      />
+      <TileLayer
+        url={`https://t{s}.tianditu.gov.cn/cia_w/wmts?SERVICE=WMTS&REQUEST=GetTile&VERSION=1.0.0&LAYER=cia&STYLE=default&TILEMATRIXSET=w&FORMAT=tiles&TILEMATRIX={z}&TILEROW={y}&TILECOL={x}&tk=${TIANDITU_TOKEN}`}
+        subdomains={TIANDITU_SUBDOMAINS}
+        zIndex={2}
+      />
+    </>
+  );
 }
 
 function RecenterMap({ regionId }: { regionId: string }) {
